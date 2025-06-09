@@ -32,35 +32,46 @@ print_step() {
     echo -e "${BLUE}[STEP]${NC} $1"
 }
 
-# Check if running as root
-if [ "$EUID" -eq 0 ]; then
-    print_warning "Running as root. Consider creating a dedicated user for security."
+# Detect if sudo is available and needed
+USE_SUDO=""
+if [ "$EUID" -ne 0 ]; then
+    if command -v sudo >/dev/null 2>&1; then
+        USE_SUDO="sudo"
+        print_status "Using sudo for privileged operations"
+    else
+        print_error "Not running as root and sudo not available. Please run as root or install sudo."
+        exit 1
+    fi
+else
+    print_warning "Running as root"
 fi
 
 # Step 1: Update system
 print_step "1. Updating system packages"
-sudo apt update && sudo apt upgrade -y
+$USE_SUDO apt update && $USE_SUDO apt upgrade -y
 
 # Step 2: Install Python and pip
 print_step "2. Installing Python 3.8+ and pip"
-sudo apt install -y python3 python3-pip python3-venv python3-dev
+$USE_SUDO apt install -y python3 python3-pip python3-venv python3-dev
 
 # Step 3: Install Chrome and ChromeDriver
 print_step "3. Installing Google Chrome"
-wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-sudo apt update
-sudo apt install -y google-chrome-stable
+wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | $USE_SUDO apt-key add -
+echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | $USE_SUDO tee /etc/apt/sources.list.d/google-chrome.list
+$USE_SUDO apt update
+$USE_SUDO apt install -y google-chrome-stable
 
 # Step 4: Install additional dependencies
 print_step "4. Installing system dependencies"
-sudo apt install -y curl wget unzip xvfb
+$USE_SUDO apt install -y curl wget unzip xvfb
 
 # Step 5: Create project directory
 print_step "5. Setting up project directory"
 PROJECT_DIR="/opt/automated-tax-rulings-scraper"
-sudo mkdir -p $PROJECT_DIR
-sudo chown $USER:$USER $PROJECT_DIR
+$USE_SUDO mkdir -p $PROJECT_DIR
+if [ "$EUID" -ne 0 ]; then
+    $USE_SUDO chown $USER:$USER $PROJECT_DIR
+fi
 cd $PROJECT_DIR
 
 # Step 6: Copy project files (assuming they're in current directory)
@@ -105,7 +116,7 @@ chmod 600 .env 2>/dev/null || true
 
 # Step 12: Create systemd service (optional)
 print_step "12. Creating systemd service"
-sudo tee /etc/systemd/system/automated-tax-rulings-scraper.service > /dev/null <<EOF
+$USE_SUDO tee /etc/systemd/system/automated-tax-rulings-scraper.service > /dev/null <<EOF
 [Unit]
 Description=Taxsutra Automated Scraper
 After=network.target
@@ -125,7 +136,7 @@ EOF
 
 # Step 13: Create systemd timer for daily execution
 print_step "13. Creating systemd timer for daily execution"
-sudo tee /etc/systemd/system/automated-tax-rulings-scraper.timer > /dev/null <<EOF
+$USE_SUDO tee /etc/systemd/system/automated-tax-rulings-scraper.timer > /dev/null <<EOF
 [Unit]
 Description=Run Taxsutra Scraper daily at 10:30 AM
 Requires=automated-tax-rulings-scraper.service
@@ -140,9 +151,9 @@ EOF
 
 # Step 14: Enable and start systemd timer
 print_step "14. Enabling systemd timer"
-sudo systemctl daemon-reload
-sudo systemctl enable automated-tax-rulings-scraper.timer
-sudo systemctl start automated-tax-rulings-scraper.timer
+$USE_SUDO systemctl daemon-reload
+$USE_SUDO systemctl enable automated-tax-rulings-scraper.timer
+$USE_SUDO systemctl start automated-tax-rulings-scraper.timer
 
 # Step 15: Test installation
 print_step "15. Testing installation"
@@ -174,7 +185,7 @@ echo "  source venv/bin/activate"
 echo "  python3 src/main.py"
 echo ""
 print_status "Check systemd timer status:"
-echo "  sudo systemctl status automated-tax-rulings-scraper.timer"
+echo "  ${USE_SUDO} systemctl status automated-tax-rulings-scraper.timer"
 echo ""
 print_status "View logs:"
 echo "  tail -f $PROJECT_DIR/logs/scraper.log"
