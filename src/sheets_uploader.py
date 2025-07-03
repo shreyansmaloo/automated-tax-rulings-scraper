@@ -699,4 +699,194 @@ class SheetsUploader:
     
     def get_sheet_url(self):
         """Get the URL of the Google Sheet"""
-        return f"https://docs.google.com/spreadsheets/d/{self.config.SPREADSHEET_ID}/edit" 
+        return f"https://docs.google.com/spreadsheets/d/{self.config.SPREADSHEET_ID}/edit"
+
+    def get_first_sheet_name(self):
+        """Return the name of the first sheet/tab in the spreadsheet."""
+        if not self.service:
+            if not self.authenticate():
+                return None
+        try:
+            sheet_metadata = self.service.spreadsheets().get(
+                spreadsheetId=self.config.SPREADSHEET_ID
+            ).execute()
+            sheets = sheet_metadata.get('sheets', [])
+            if not sheets:
+                logger.error("No sheets found in the spreadsheet.")
+                return None
+            return sheets[0]['properties']['title']
+        except Exception as e:
+            logger.error(f"Failed to get first sheet name: {e}")
+            return None
+
+    def upload_expert_corner_data(self, expert_corner_data, sheet_name=None, clear_first=False):
+        """Upload expert corner data to Google Sheets with custom mapping. If sheet_name is None, use the first sheet."""
+        if not self.service:
+            if not self.authenticate():
+                return False
+        try:
+            if sheet_name is None:
+                sheet_name = self.get_first_sheet_name()
+                if not sheet_name:
+                    logger.error("No valid sheet to upload expert corner data.")
+                    return False
+            # Prepare data
+            headers = ["Date", "Category", "Sub-Category", "Summary"]
+            data = [headers]
+            for article in expert_corner_data:
+                row = [
+                    article.get("date", "N/A"),
+                    "Direct tax",
+                    "Article",
+                    article.get("title", "")
+                ]
+                data.append(row)
+            if clear_first:
+                self.clear_sheet(sheet_name)
+                range_name = f'{sheet_name}!A1'
+            else:
+                next_row = self.get_next_available_row(sheet_name)
+                if next_row == 1:
+                    range_name = f'{sheet_name}!A1'
+                else:
+                    data = data[1:]  # Remove headers from new data
+                    range_name = f'{sheet_name}!A{next_row}'
+            value_range = {'values': data}
+            result = self.service.spreadsheets().values().update(
+                spreadsheetId=self.config.SPREADSHEET_ID,
+                range=range_name,
+                valueInputOption='RAW',
+                body=value_range
+            ).execute()
+            cells_updated = result.get('updatedCells', 0)
+            logger.info(f"✅ Successfully uploaded expert corner data to Google Sheets")
+            logger.info(f"📊 {cells_updated} cells updated")
+            logger.info(f"📋 {len(expert_corner_data)} expert articles uploaded")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to upload expert corner data to Google Sheets: {e}")
+            return False
+
+    def upload_litigation_tracker_data(self, litigation_data, sheet_name=None, clear_first=False):
+        """Upload litigation tracker data to Google Sheets with custom mapping and formatting."""
+        if not self.service:
+            if not self.authenticate():
+                return False
+        try:
+            if sheet_name is None:
+                sheet_name = self.get_first_sheet_name()
+                if not sheet_name:
+                    logger.error("No valid sheet to upload litigation tracker data.")
+                    return False
+            headers = ["Date", "Category", "Sub-Category", "Summary"]
+            data = [headers]
+            for entry in litigation_data:
+                # Ensure summary is present and not just title
+                title = entry.get('title', '')
+                summary_text = entry.get('summary', '')
+                summary = f"{title}\n\n{summary_text}" if summary_text else title
+                row = [
+                    entry.get("date", "N/A"),
+                    "Direct Tax",
+                    "Litigation",
+                    summary
+                ]
+                print(f"Uploading row: {row}")  # Debug print
+                data.append(row)
+            if clear_first:
+                self.clear_sheet(sheet_name)
+                range_name = f'{sheet_name}!A1'
+            else:
+                next_row = self.get_next_available_row(sheet_name)
+                if next_row == 1:
+                    range_name = f'{sheet_name}!A1'
+                else:
+                    data = data[1:]  # Remove headers from new data
+                    range_name = f'{sheet_name}!A{next_row}'
+            value_range = {'values': data}
+            result = self.service.spreadsheets().values().update(
+                spreadsheetId=self.config.SPREADSHEET_ID,
+                range=range_name,
+                valueInputOption='RAW',
+                body=value_range
+            ).execute()
+            cells_updated = result.get('updatedCells', 0)
+            logger.info(f"✅ Successfully uploaded litigation tracker data to Google Sheets")
+            logger.info(f"📊 {cells_updated} cells updated")
+            logger.info(f"📋 {len(litigation_data)} litigation tracker articles uploaded")
+            # Apply formatting: bold first line of summary
+            self.format_litigation_summary(sheet_name, start_row=next_row)
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to upload litigation tracker data to Google Sheets: {e}")
+            return False
+
+    def format_litigation_summary(self, sheet_name, start_row=2):
+        """Apply bold formatting to the first line of the summary column for litigation tracker uploads."""
+        try:
+            sheet_metadata = self.service.spreadsheets().get(
+                spreadsheetId=self.config.SPREADSHEET_ID
+            ).execute()
+            sheet_id = None
+            for sheet in sheet_metadata.get('sheets', []):
+                if sheet['properties']['title'] == sheet_name:
+                    sheet_id = sheet['properties']['sheetId']
+                    break
+            if sheet_id is None:
+                logger.warning(f"Sheet '{sheet_name}' not found for summary formatting")
+                return
+            range_name = f'{sheet_name}!D:D'  # Summary column (D)
+            result = self.service.spreadsheets().values().get(
+                spreadsheetId=self.config.SPREADSHEET_ID,
+                range=range_name
+            ).execute()
+            values = result.get('values', [])
+            if len(values) < start_row:
+                logger.info("No data to format in summary column")
+                return
+            requests = []
+            for row_idx in range(start_row - 1, len(values)):
+                cell_value = values[row_idx][0] if values[row_idx] else ""
+                if not cell_value.strip():
+                    continue
+                first_newline = cell_value.find('\n')
+                if first_newline == -1:
+                    bold_end = len(cell_value)
+                else:
+                    bold_end = first_newline
+                text_format_runs = [
+                    {"startIndex": 0, "format": {"bold": True}},
+                    {"startIndex": bold_end, "format": {}}
+                ]
+                requests.append({
+                    "updateCells": {
+                        "range": {
+                            "sheetId": sheet_id,
+                            "startRowIndex": row_idx,
+                            "endRowIndex": row_idx + 1,
+                            "startColumnIndex": 3,  # Column D
+                            "endColumnIndex": 4
+                        },
+                        "rows": [{
+                            "values": [{
+                                "userEnteredValue": {"stringValue": cell_value},
+                                "userEnteredFormat": {"wrapStrategy": "WRAP", "verticalAlignment": "TOP"},
+                                "textFormatRuns": text_format_runs
+                            }]
+                        }],
+                        "fields": "userEnteredValue,userEnteredFormat.wrapStrategy,userEnteredFormat.verticalAlignment,textFormatRuns"
+                    }
+                })
+            if requests:
+                batch_size = 50
+                for i in range(0, len(requests), batch_size):
+                    batch_requests = requests[i:i + batch_size]
+                    self.service.spreadsheets().batchUpdate(
+                        spreadsheetId=self.config.SPREADSHEET_ID,
+                        body={"requests": batch_requests}
+                    ).execute()
+                    logger.info(f"✅ Applied bold formatting to litigation summary batch {i//batch_size + 1}")
+            else:
+                logger.info("No cells found to format for litigation summary")
+        except Exception as e:
+            logger.error(f"❌ Litigation summary formatting failed: {e}") 

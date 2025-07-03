@@ -576,15 +576,15 @@ class ITRulingsScraper:
                 except:
                     pass
             
-            if pdf_link:
-                pdf_path = self.download_pdf(pdf_link, data.get("Title", "ruling"), data)
-                if pdf_path:
-                    data["PDF Path"] = pdf_path
-                    logger.info(f"✅ PDF downloaded: {pdf_path}")
-                else:
-                    logger.warning("❌ Failed to download PDF")
-            else:
-                logger.debug("No PDF download link found on this page")
+            # if pdf_link:
+            #     pdf_path = self.download_pdf(pdf_link, data.get("Title", "ruling"), data)
+            #     if pdf_path:
+            #         data["PDF Path"] = pdf_path
+            #         logger.info(f"✅ PDF downloaded: {pdf_path}")
+            #     else:
+            #         logger.warning("❌ Failed to download PDF")
+            # else:
+            #     logger.debug("No PDF download link found on this page")
                 
         except Exception as e:
             logger.warning(f"Error while looking for PDF: {e}")
@@ -766,3 +766,529 @@ class ITRulingsScraper:
             if self.driver:
                 self.driver.quit()
                 logger.info("Chrome driver closed") 
+                
+                
+
+class ITExpertCornerScraper:
+
+    def __init__(self):
+        self.driver = None
+        self.config = config
+        
+    def setup_driver(self):
+        """Setup Chrome WebDriver with performance optimizations"""
+        logger.info("Setting up Chrome WebDriver...")
+        
+        chrome_options = Options()
+        
+        # Performance optimizations
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--disable-web-security")
+        chrome_options.add_argument("--disable-features=VizDisplayCompositor")
+        
+        # Major performance boost - disable images and media
+        chrome_options.add_argument("--disable-images")
+        chrome_options.add_argument("--disable-plugins")
+        chrome_options.add_argument("--disable-extensions")
+        chrome_options.add_argument("--disable-background-timer-throttling")
+        chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+        chrome_options.add_argument("--disable-renderer-backgrounding")
+        
+        # Memory optimizations
+        chrome_options.add_argument("--memory-pressure-off")
+        chrome_options.add_argument("--max_old_space_size=2048")
+        chrome_options.add_argument("--disable-background-networking")
+        chrome_options.add_argument("--disable-sync")
+        chrome_options.add_argument("--disable-default-apps")
+        
+        # Headless mode for server deployment
+        if self.config.HEADLESS_MODE:
+            chrome_options.add_argument("--headless")
+            chrome_options.add_argument("--single-process")  # Important for server resources
+            
+        # Set Chrome binary path if specified
+        if self.config.CHROME_BINARY_PATH and self.config.CHROME_BINARY_PATH != "/usr/bin/google-chrome":
+            chrome_options.binary_location = self.config.CHROME_BINARY_PATH
+        
+        # Optimized preferences
+        prefs = {
+            "profile.managed_default_content_settings.images": 2,
+            "profile.default_content_setting_values.notifications": 2,
+            "profile.default_content_setting_values.geolocation": 2,
+            "profile.default_content_settings.popups": 0
+        }
+        chrome_options.add_experimental_option("prefs", prefs)
+        
+        try:
+            # Try to use system ChromeDriver first, then webdriver-manager
+            try:
+                self.driver = webdriver.Chrome(options=chrome_options)
+                logger.info("✅ Chrome WebDriver initialized with system driver")
+            except:
+                # Fallback to webdriver-manager
+                chromedriver_path = ChromeDriverManager().install()
+                service = Service(chromedriver_path)
+                self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                logger.info("✅ Chrome WebDriver initialized with webdriver-manager")
+                
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Chrome WebDriver: {e}")
+            return False
+    
+    
+    def optionally_force_login_to_taxsutra_and_navigate_to_expert_corner(self):
+        """Login to Taxsutra website"""
+        try:
+            logger.info("Navigating to Taxsutra login page...")
+            self.driver.get("https://www.taxsutra.com/dt/experts-corner")
+            
+            # Click Sign in button
+            signin_button = WebDriverWait(self.driver, self.config.WEBDRIVER_TIMEOUT).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "a[href='/user/login']"))
+            )
+            signin_button.click()
+            logger.info("Clicked Sign in button")
+            
+            # Wait for login form
+            WebDriverWait(self.driver, self.config.WEBDRIVER_TIMEOUT).until(
+                EC.visibility_of_element_located((By.ID, "edit-name"))
+            )
+            
+            # Enter credentials
+            username_field = self.driver.find_element(By.ID, "edit-name")
+            password_field = self.driver.find_element(By.ID, "edit-pass")
+            login_button = self.driver.find_element(By.ID, "edit-submit")
+            
+            username_field.send_keys(self.config.TAXSUTRA_USERNAME)
+            password_field.send_keys(self.config.TAXSUTRA_PASSWORD)
+            login_button.click()
+            logger.info("Submitted login credentials")
+            
+            # Handle force login if needed
+            try:
+                force_login_button = WebDriverWait(self.driver, 8).until(
+                    EC.element_to_be_clickable((By.ID, "edit-reset"))
+                )
+                force_login_button.click()
+                logger.info("Handled force login")
+            except:
+                logger.debug("No force login required")
+            
+            # Navigate back to rulings page
+            self.driver.get("https://www.taxsutra.com/dt/experts-corner")
+            time.sleep(3)
+            
+            logger.info("✅ Successfully logged in to Taxsutra")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Login failed: {e}")
+            return False
+     
+    def get_today_string(self):
+        """Get today's date in Taxsutra format"""
+        today = date.today()
+        return today.strftime("%b %d, %Y")
+    
+    def get_yesterday_string(self):
+        """Get yesterday's date in Taxsutra format"""
+        yesterday = date(2025, 6, 18) - timedelta(days=1)
+        # yesterday = date.today() - timedelta(days=1)
+        return yesterday.strftime("%b %d, %Y")
+        
+    def get_weekend_dates(self):
+        """Get weekend dates (Saturday and Sunday) if today is Monday"""
+        today = date.today()
+        
+        # If today is Monday (weekday 0), get Saturday and Sunday dates
+        if today.weekday() == 0:  # Monday
+            saturday = today - timedelta(days=2)  # Saturday
+            sunday = today - timedelta(days=1)    # Sunday
+            return [saturday.strftime("%b %d, %Y"), sunday.strftime("%b %d, %Y")]
+        else:
+            # Just return yesterday for non-Monday
+            yesterday = today - timedelta(days=1)
+            return [yesterday.strftime("%b %d, %Y")]
+    
+    def is_today_date(self, date_string):
+        """Check if the given date string is today's date"""
+        if not date_string or date_string == "N/A":
+            return False
+        
+        today_str = self.get_today_string()
+        normalized_date = " ".join(date_string.strip().split())
+        normalized_today = " ".join(today_str.split())
+        
+        return normalized_date == normalized_today
+    
+    def is_target_date(self, date_string, target_dates):
+        """Check if the given date string matches any of the target dates"""
+        if not date_string or date_string == "N/A":
+            return False
+        
+        normalized_date = " ".join(date_string.strip().split())
+        
+        for target_date in target_dates:
+            normalized_target = " ".join(target_date.split())
+            if normalized_date == normalized_target:
+                return True
+                
+        return False
+    
+    
+    def login_and_navigate(self):
+        """Login and navigate to the expert corner page."""
+        if not self.optionally_force_login_to_taxsutra_and_navigate_to_expert_corner():
+            logger.error("Failed to login, aborting scraping")
+            return False
+        return True
+
+    def get_article_elements(self):
+        """Wait for and return all <li> article elements inside the content wrapper."""
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        import time
+        try:
+            time.sleep(10)  # Wait for articles to load after filter submit
+            wrapper = WebDriverWait(self.driver, self.config.WEBDRIVER_TIMEOUT).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, ".views-infinite-scroll-content-wrapper.clearfix"))
+            )
+            li_elements = wrapper.find_elements(By.TAG_NAME, "li")
+            return li_elements
+        except Exception as e:
+            logger.error(f"Could not find article list wrapper: {e}")
+            return []
+
+    def extract_article_info(self, li):
+        """Extract and return the date and title from a single <li> element."""
+        from selenium.webdriver.common.by import By
+        try:
+            date_div = li.find_element(By.CSS_SELECTOR, "div.articleDate")
+            date_text = date_div.text.strip()
+            h3 = li.find_element(By.TAG_NAME, "h3")
+            title_text = h3.text.strip()
+            return date_text, title_text
+        except Exception:
+            return None, None
+
+    def normalize_date_for_compare(self, date_str):
+        """Normalize date string to 'Mon D, YYYY' (no leading zero on day)."""
+        import re
+        if not date_str:
+            return ""
+        return re.sub(r'(\w+)\s0?(\d{1,2}),\s*(\d{4})', r'\1 \2, \3', date_str.strip())
+
+
+    def extract_article_tag(self, li):
+        """Extract and return the text under class 'articleTag articlePurpleTag' from a single <li> element."""
+        from selenium.webdriver.common.by import By
+        try:
+            tag_div = li.find_element(By.CSS_SELECTOR, ".articleTag.articlePurpleTag")
+            return tag_div.text.strip()
+        except Exception:
+            return ""
+
+    def scrape_yesterday_expert_corner(self):
+        """Scrape all expert articles and return a JSON list of dicts with 'title' and 'date' for yesterday (or weekend if Monday)."""
+        import json
+        if not self.setup_driver():
+            return []
+        try:
+            if not self.login_and_navigate():
+                return []
+            from datetime import date
+            today = date.today()  # or set to date(2025, 7, 3) for testing
+            print(f"Today's date: {today.strftime('%b %d, %Y')}")
+            print(f"Yesterday's date: {self.get_yesterday_string()}")
+            # If today is Saturday or Sunday, do not generate any data
+            if today.weekday() in [5, 6]:  # 5=Saturday, 6=Sunday
+                print("Today is Saturday or Sunday, not generating any data.")
+                return []
+            if today.weekday() == 0:
+                target_dates = self.get_weekend_dates()
+            else:
+                target_dates = [self.get_yesterday_string()]
+            normalized_targets = [self.normalize_date_for_compare(d) for d in target_dates]
+            yesterday_normalized = self.normalize_date_for_compare(self.get_yesterday_string())
+            results = []
+            li_elements = self.get_article_elements()
+            for li in li_elements:
+                date_text, title_text = self.extract_article_info(li)
+                tag_text = self.extract_article_tag(li)
+                normalized_date = self.normalize_date_for_compare(date_text)
+                if date_text and title_text and tag_text == "Expert Articles" and normalized_date in normalized_targets:
+                    results.append({"title": title_text, "date": date_text})
+            print(json.dumps(results, indent=2, ensure_ascii=False))
+            logger.info(f"Returned all expert articles for yesterday or weekend (filtered for 'Expert Articles').")
+            return results
+        finally:
+            if self.driver:
+                self.driver.quit()
+                logger.info("Chrome driver closed")
+
+
+class ITLitigationTrackerScraper:
+    """Scraper for Taxsutra Litigation Tracker"""
+    def __init__(self):
+        self.driver = None
+        self.config = config
+        
+    def setup_driver(self):
+        """Setup Chrome WebDriver with performance optimizations"""
+        logger.info("Setting up Chrome WebDriver...")
+        
+        chrome_options = Options()
+        
+        # Performance optimizations
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--disable-web-security")
+        chrome_options.add_argument("--disable-features=VizDisplayCompositor")
+        
+        # Major performance boost - disable images and media
+        chrome_options.add_argument("--disable-images")
+        chrome_options.add_argument("--disable-plugins")
+        chrome_options.add_argument("--disable-extensions")
+        chrome_options.add_argument("--disable-background-timer-throttling")
+        chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+        chrome_options.add_argument("--disable-renderer-backgrounding")
+        
+        # Memory optimizations
+        chrome_options.add_argument("--memory-pressure-off")
+        chrome_options.add_argument("--max_old_space_size=2048")
+        chrome_options.add_argument("--disable-background-networking")
+        chrome_options.add_argument("--disable-sync")
+        chrome_options.add_argument("--disable-default-apps")
+        
+        # Headless mode for server deployment
+        if self.config.HEADLESS_MODE:
+            chrome_options.add_argument("--headless")
+            chrome_options.add_argument("--single-process")  # Important for server resources
+            
+        # Set Chrome binary path if specified
+        if self.config.CHROME_BINARY_PATH and self.config.CHROME_BINARY_PATH != "/usr/bin/google-chrome":
+            chrome_options.binary_location = self.config.CHROME_BINARY_PATH
+        
+        # Optimized preferences
+        prefs = {
+            "profile.managed_default_content_settings.images": 2,
+            "profile.default_content_setting_values.notifications": 2,
+            "profile.default_content_setting_values.geolocation": 2,
+            "profile.default_content_settings.popups": 0
+        }
+        chrome_options.add_experimental_option("prefs", prefs)
+        
+        try:
+            # Try to use system ChromeDriver first, then webdriver-manager
+            try:
+                self.driver = webdriver.Chrome(options=chrome_options)
+                logger.info("✅ Chrome WebDriver initialized with system driver")
+            except:
+                # Fallback to webdriver-manager
+                chromedriver_path = ChromeDriverManager().install()
+                service = Service(chromedriver_path)
+                self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                logger.info("✅ Chrome WebDriver initialized with webdriver-manager")
+                
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Chrome WebDriver: {e}")
+            return False
+    
+    
+    def optionally_force_login_to_taxsutra_and_navigate_to_litigation_tracker(self):
+        """Login to Taxsutra website"""
+        try:
+            logger.info("Navigating to Taxsutra login page...")
+            self.driver.get("https://www.taxsutra.com/dt/litigation-tracker")
+            
+            # Click Sign in button
+            signin_button = WebDriverWait(self.driver, self.config.WEBDRIVER_TIMEOUT).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "a[href='/user/login']"))
+            )
+            signin_button.click()
+            logger.info("Clicked Sign in button")
+            
+            # Wait for login form
+            WebDriverWait(self.driver, self.config.WEBDRIVER_TIMEOUT).until(
+                EC.visibility_of_element_located((By.ID, "edit-name"))
+            )
+            
+            # Enter credentials
+            username_field = self.driver.find_element(By.ID, "edit-name")
+            password_field = self.driver.find_element(By.ID, "edit-pass")
+            login_button = self.driver.find_element(By.ID, "edit-submit")
+            
+            username_field.send_keys(self.config.TAXSUTRA_USERNAME)
+            password_field.send_keys(self.config.TAXSUTRA_PASSWORD)
+            login_button.click()
+            logger.info("Submitted login credentials")
+            
+            # Handle force login if needed
+            try:
+                force_login_button = WebDriverWait(self.driver, 8).until(
+                    EC.element_to_be_clickable((By.ID, "edit-reset"))
+                )
+                force_login_button.click()
+                logger.info("Handled force login")
+            except:
+                logger.debug("No force login required")
+            
+            # Navigate back to rulings page
+            self.driver.get("https://www.taxsutra.com/dt/litigation-tracker")
+            time.sleep(3)
+            
+            logger.info("✅ Successfully logged in to Taxsutra")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Login failed: {e}")
+            return False
+     
+    def get_today_string(self):
+        """Get today's date in Taxsutra format"""
+        today = date.today()
+        return today.strftime("%b %d, %Y")
+    
+    def get_yesterday_string(self):
+        """Get yesterday's date in Taxsutra format"""
+        # yesterday = date.today() - timedelta(days=1)
+        yesterday = date(2025, 5, 7) - timedelta(days=1)
+        return yesterday.strftime("%b %d, %Y")
+        
+    def get_weekend_dates(self):
+        """Get weekend dates (Saturday and Sunday) if today is Monday"""
+        today = date.today()
+        
+        # If today is Monday (weekday 0), get Saturday and Sunday dates
+        if today.weekday() == 0:  # Monday
+            saturday = today - timedelta(days=2)  # Saturday
+            sunday = today - timedelta(days=1)    # Sunday
+            return [saturday.strftime("%b %d, %Y"), sunday.strftime("%b %d, %Y")]
+        else:
+            # Just return yesterday for non-Monday
+            yesterday = today - timedelta(days=1)
+            return [yesterday.strftime("%b %d, %Y")]
+    
+    def is_today_date(self, date_string):
+        """Check if the given date string is today's date"""
+        if not date_string or date_string == "N/A":
+            return False
+        
+        today_str = self.get_today_string()
+        normalized_date = " ".join(date_string.strip().split())
+        normalized_today = " ".join(today_str.split())
+        
+        return normalized_date == normalized_today
+    
+    def is_target_date(self, date_string, target_dates):
+        """Check if the given date string matches any of the target dates"""
+        if not date_string or date_string == "N/A":
+            return False
+        
+        normalized_date = " ".join(date_string.strip().split())
+        
+        for target_date in target_dates:
+            normalized_target = " ".join(target_date.split())
+            if normalized_date == normalized_target:
+                return True
+                
+        return False
+    
+    def login_and_navigate(self):
+        """Login and navigate to the expert corner page."""
+        if not self.optionally_force_login_to_taxsutra_and_navigate_to_litigation_tracker():
+            logger.error("Failed to login, aborting scraping")
+            return False
+        return True
+    
+    def normalize_date_for_compare(self, date_str):
+        """Normalize date string to 'Mon D, YYYY' (no leading zero on day)."""
+        import re
+        if not date_str:
+            return ""
+        return re.sub(r'(\w+)\s0?(\d{1,2}),\s*(\d{4})', r'\1 \2, \3', date_str.strip())
+    
+    def scrape_yesterday_litigation_tracker(self):
+        """Scrape litigation tracker articles for yesterday (or weekend if Monday) and return JSON with date, title, summary."""
+        import json
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        import time
+        if not self.setup_driver():
+            return []
+        try:
+            if not self.login_and_navigate():
+                return []
+            # Wait for articles to load
+            time.sleep(10)
+            wrapper = self.driver.find_element(By.XPATH, '//*[@class="views-infinite-scroll-content-wrapper clearfix"]')
+            article_divs = wrapper.find_elements(By.XPATH, './div')
+            print(f"Found {len(article_divs)} litigation tracker articles")
+            today = date.today()  # or set to date(2025, 7, 3) for testing
+            print(f"Today's date: {today.strftime('%b %d, %Y')}")
+            print(f"Yesterday's date: {self.get_yesterday_string()}")
+            # If today is Saturday or Sunday, do not generate any data
+            if today.weekday() in [5, 6]:  # 5=Saturday, 6=Sunday
+                print("Today is Saturday or Sunday, not generating any data.")
+                return []
+            if today.weekday() == 0:
+                target_dates = self.get_weekend_dates()
+            else:
+                target_dates = [self.get_yesterday_string()]
+            normalized_targets = [self.normalize_date_for_compare(d) for d in target_dates]
+            yesterday_normalized = self.normalize_date_for_compare(self.get_yesterday_string())
+            results = []
+            for div in article_divs:
+                try:
+                    date_span = div.find_element(By.TAG_NAME, 'span')
+                    date_text = date_span.text.strip()
+                    normalized_litigation_date = self.normalize_date_for_compare(date_text)
+                    if normalized_litigation_date == yesterday_normalized:
+                        link_elem = div.find_element(By.TAG_NAME, 'h3').find_element(By.TAG_NAME, 'a')
+                        url = link_elem.get_attribute("href")
+                        # Navigate to the article page
+                        self.driver.execute_script("window.open(arguments[0]);", url)
+                        self.driver.switch_to.window(self.driver.window_handles[-1])
+                        from selenium.webdriver.common.by import By
+                        from selenium.webdriver.support.ui import WebDriverWait
+                        from selenium.webdriver.support import expected_conditions as EC
+                        import time
+                        time.sleep(3)
+                        # Extract title
+                        try:
+                            title_elem = WebDriverWait(self.driver, self.config.WEBDRIVER_TIMEOUT).until(
+                                EC.visibility_of_element_located((By.XPATH, '//*[@class="field field--name-title field--type-string field--label-hidden"]'))
+                            )
+                            title = title_elem.text.strip()
+                        except Exception:
+                            title = ""
+                        # Extract summary
+                        try:
+                            summary_elem = WebDriverWait(self.driver, self.config.WEBDRIVER_TIMEOUT).until(
+                                EC.visibility_of_element_located((By.XPATH, '//*[@class="clearfix text-formatted field field--name-field-conclusion field--type-text-long field--label-hidden field__item"]'))
+                            )
+                            summary = summary_elem.text.strip()
+                        except Exception:
+                            summary = ""
+                        results.append({"date": date_text, "title": title, "summary": summary})
+                        self.driver.close()
+                        self.driver.switch_to.window(self.driver.window_handles[0])
+                except Exception as e:
+                    print(f"Error processing div: {e}")
+            import json
+            print(json.dumps(results, indent=2, ensure_ascii=False))
+            return results
+        finally:
+            if self.driver:
+                self.driver.quit()
+                logger.info("Chrome driver closed")
+            

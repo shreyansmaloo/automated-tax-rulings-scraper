@@ -16,7 +16,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from config.settings import config, logger
-from src.scraper import ITRulingsScraper
+from src.scraper import ITRulingsScraper, ITExpertCornerScraper, ITLitigationTrackerScraper
 from src.sheets_uploader import SheetsUploader
 
 def save_json_backup(rulings_data):
@@ -49,7 +49,8 @@ def main():
         # Initialize scraper
         logger.info("📡 Initializing scraper...")
         scraper = ITRulingsScraper()
-        
+        expert_corner_scraper = ITExpertCornerScraper()
+        litigation_tracker_scraper = ITLitigationTrackerScraper()
         # Determine if today is Monday
         today = date.today()
         is_monday = today.weekday() == 0
@@ -61,30 +62,63 @@ def main():
         else:
             logger.info("🔍 Starting scraping process for yesterday's rulings...")
             time_period = "yesterday"
+            
+        rulings_data = []
+        expert_corner_data = []
+        litigation_tracker_data = []
         
         # Use the yesterday rulings scraper method
         rulings_data = scraper.scrape_yesterday_rulings()
-        
-        if not rulings_data:
-            logger.warning(f"⚠️ No rulings found for {time_period}")
-            return 1
-        
-        logger.info(f"✅ Successfully scraped {len(rulings_data)} rulings")
-        
+        expert_corner_data = expert_corner_scraper.scrape_yesterday_expert_corner()
+        litigation_tracker_data = litigation_tracker_scraper.scrape_yesterday_litigation_tracker()
         # Save JSON backup
         json_file = save_json_backup(rulings_data)
         
         # Upload to Google Sheets
         logger.info("📊 Uploading to Google Sheets...")
         uploader = SheetsUploader()
+        any_uploaded = False
         
-        if uploader.upload_data(rulings_data):
-            logger.info("✅ Successfully uploaded to Google Sheets")
-            logger.info(f"🔗 View at: {uploader.get_sheet_url()}")
+        if rulings_data:
+            logger.info(f"✅ Successfully {rulings_data} rulings")
+            logger.info(f"✅ Successfully scraped {len(rulings_data)} rulings")
+            if uploader.upload_data(rulings_data):
+                logger.info("✅ Successfully uploaded to Google Sheets")
+                logger.info(f"🔗 View at: {uploader.get_sheet_url()}")
+                any_uploaded = True
+            else:
+                logger.error("❌ Failed to upload to Google Sheets")
+                logger.info(f"💾 Data saved locally: {json_file}")
+        
         else:
-            logger.error("❌ Failed to upload to Google Sheets")
-            logger.info(f"💾 Data saved locally: {json_file}")
-            return 2
+            logger.warning(f"⚠️ No rulings found for {time_period}")
+            # return 1 
+        
+        if expert_corner_data:
+            logger.info(f"Expert Corner Data: {expert_corner_data}")
+            if uploader.upload_expert_corner_data(expert_corner_data):
+                logger.info("✅ Successfully uploaded expert corner data to Google Sheets")
+                any_uploaded = True
+            else:
+                logger.error("❌ Failed to upload expert corner data to Google Sheets")
+        else:
+            logger.warning(f"⚠️ No export articles found for {time_period}")
+            # return 1
+        
+        if litigation_tracker_data:
+            logger.info(f"Expert Corner Data: {litigation_tracker_data}")
+            if uploader.upload_litigation_tracker_data(litigation_tracker_data):
+                logger.info("✅ Successfully uploaded expert corner data to Google Sheets")
+                any_uploaded = True
+            else:
+                logger.error("❌ Failed to upload expert corner data to Google Sheets")
+        else:
+            logger.warning(f"⚠️ No export articles found for {time_period}")
+            # return 1
+        
+        if not any_uploaded:
+            logger.warning("⚠️ No data to upload to Google Sheets.")
+            # return 1
         
         # Success summary
         end_time = datetime.now()
@@ -92,6 +126,7 @@ def main():
         
         logger.info("🎉 SCRAPING COMPLETED SUCCESSFULLY!")
         logger.info(f"📋 Rulings processed: {len(rulings_data)}")
+        logger.info(f"📋 Expert Corner processed: {len(expert_corner_data)}")
         logger.info(f"⏱️ Total time: {duration}")
         logger.info(f"📊 Google Sheets updated: {uploader.get_sheet_url()}")
         logger.info(f"💾 JSON backup: {json_file}")
