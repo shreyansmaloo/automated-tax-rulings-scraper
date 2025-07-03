@@ -102,10 +102,7 @@ htmlcov/
 dmypy.json
 
 # Documentation builds
-docs/_build/ 
+docs/_build/
 
 # Credentials
 .env*
-env-tax/*
-env-tax/
-env-tax/bin/
