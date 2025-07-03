@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
 Automated Tax Rulings Scraper - Main Application
-Scrapes today's tax rulings and uploads to Google Sheets
+Scrapes yesterday's tax rulings (or weekend rulings if today is Monday) and uploads to Google Sheets
 """
 
 import os
 import sys
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
 
 # Add project root to Python path
@@ -27,7 +27,7 @@ def save_json_backup(rulings_data):
         downloads_dir.mkdir(exist_ok=True)
         
         # Save to fixed filename
-        json_filename = downloads_dir / "todays_rulings.json"
+        json_filename = downloads_dir / "rulings.json"
         
         with open(json_filename, 'w', encoding='utf-8') as f:
             json.dump(rulings_data, f, indent=2, ensure_ascii=False)
@@ -50,12 +50,23 @@ def main():
         logger.info("📡 Initializing scraper...")
         scraper = ITRulingsScraper()
         
-        # Scrape rulings
-        logger.info("🔍 Starting scraping process...")
-        rulings_data = scraper.scrape_all_todays_rulings()
+        # Determine if today is Monday
+        today = date.today()
+        is_monday = today.weekday() == 0
+        
+        # Always scrape yesterday's rulings (or weekend rulings if today is Monday)
+        if is_monday:
+            logger.info("🔍 Today is Monday - starting scraping process for weekend rulings...")
+            time_period = "weekend"
+        else:
+            logger.info("🔍 Starting scraping process for yesterday's rulings...")
+            time_period = "yesterday"
+        
+        # Use the yesterday rulings scraper method
+        rulings_data = scraper.scrape_yesterday_rulings()
         
         if not rulings_data:
-            logger.warning("⚠️ No rulings found for today")
+            logger.warning(f"⚠️ No rulings found for {time_period}")
             return 1
         
         logger.info(f"✅ Successfully scraped {len(rulings_data)} rulings")
@@ -101,7 +112,7 @@ def print_banner():
     ╔══════════════════════════════════════════════════════════════╗
     ║                🤖 AUTOMATED TAX RULINGS SCRAPER             ║
     ║                                                              ║
-    ║  🎯 Extracts today's tax rulings from Taxsutra.com         ║
+    ║  🎯 Extracts yesterday's tax rulings from Taxsutra.com     ║
     ║  📊 Uploads data to Google Sheets automatically            ║
     ║  ⚡ Optimized for server deployment & automation            ║
     ║                                                              ║
