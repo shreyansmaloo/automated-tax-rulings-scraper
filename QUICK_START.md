@@ -22,7 +22,8 @@ Before starting, have these ready:
 
 1. **Google Spreadsheet ID** (from URL)
 2. **Taxsutra credentials** (username/password)
-3. **Service account JSON file** (from Google Cloud)
+3. **Taxmann credentials** (email/password)
+4. **Service account JSON file** (from Google Cloud)
 
 ## 🔧 Manual Quick Setup
 
@@ -35,7 +36,7 @@ pip install -r requirements.txt
 
 ### 2. Configure Environment
 ```bash
-cp .env.example .env
+cp env.example .env
 nano .env  # Edit with your credentials
 ```
 
@@ -46,12 +47,18 @@ mkdir -p config/credentials
 # Copy your file to config/credentials/service-account.json
 ```
 
-### 4. Test Run
+### 4. Test Login Functionality
+```bash
+# Test Taxmann login
+python3 test_taxmann_login.py
+```
+
+### 5. Test Full Run
 ```bash
 python3 src/main.py
 ```
 
-### 5. Set Up Daily Automation
+### 6. Set Up Daily Automation
 ```bash
 # For cron (all systems)
 (crontab -l 2>/dev/null; echo "30 10 * * * cd $(pwd) && source venv/bin/activate && python3 src/main.py >> logs/cron.log 2>&1") | crontab -
@@ -71,6 +78,9 @@ Check everything is working:
 # Test Google Sheets connection
 python3 -c "from src.sheets_uploader import SheetsUploader; print('✅ OK' if SheetsUploader().authenticate() else '❌ Failed')"
 
+# Test Taxmann login
+python3 test_taxmann_login.py
+
 # Test Chrome
 google-chrome --version
 
@@ -89,6 +99,7 @@ tail -f logs/scraper.log
 You'll know it's working when you see:
 - ✅ Chrome WebDriver initialized
 - ✅ Successfully logged in to Taxsutra
+- ✅ Successfully logged in to Taxmann
 - ✅ Google Sheets authentication successful
 - 📊 X cells updated in Google Sheets
 

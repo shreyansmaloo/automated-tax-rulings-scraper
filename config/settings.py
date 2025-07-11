@@ -28,6 +28,10 @@ class Config:
     TAXSUTRA_USERNAME = os.getenv("TAXSUTRA_USERNAME", "")
     TAXSUTRA_PASSWORD = os.getenv("TAXSUTRA_PASSWORD", "")
     
+    # Taxmann Login Credentials
+    TAXMANN_EMAIL = os.getenv("TAXMANN_EMAIL", "")
+    TAXMANN_PASSWORD = os.getenv("TAXMANN_PASSWORD", "")
+    
     # Logging Configuration
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
     LOG_FILE = os.getenv("LOG_FILE", "logs/scraper.log")
@@ -41,6 +45,7 @@ class Config:
     # Timing Configuration (in seconds)
     WEBDRIVER_TIMEOUT = int(os.getenv("WEBDRIVER_TIMEOUT", "8"))
     PAGE_LOAD_WAIT = float(os.getenv("PAGE_LOAD_WAIT", "1.5"))
+    PAGE_LOAD_TIMEOUT = int(os.getenv("PAGE_LOAD_TIMEOUT", "30"))
     RETRY_ATTEMPTS = int(os.getenv("RETRY_ATTEMPTS", "3"))
     
     # Timezone
@@ -60,6 +65,12 @@ class Config:
             
         if not cls.TAXSUTRA_PASSWORD:
             errors.append("TAXSUTRA_PASSWORD is required")
+            
+        if not cls.TAXMANN_EMAIL:
+            errors.append("TAXMANN_EMAIL is required")
+            
+        if not cls.TAXMANN_PASSWORD:
+            errors.append("TAXMANN_PASSWORD is required")
             
         if not Path(cls.SERVICE_ACCOUNT_FILE).exists():
             errors.append(f"Service account file not found: {cls.SERVICE_ACCOUNT_FILE}")

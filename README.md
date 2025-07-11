@@ -4,7 +4,7 @@
 [![Selenium](https://img.shields.io/badge/selenium-4.15.2-green.svg)](https://selenium.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A high-performance, automated web scraper that extracts tax rulings from Taxsutra.com and uploads them to Google Sheets. Optimized for server deployment with cron automation.
+A high-performance, automated web scraper that extracts tax rulings from Taxsutra.com and Taxmann.com, and uploads them to Google Sheets. Optimized for server deployment with cron automation.
 
 ## 🚀 Features
 
@@ -21,11 +21,9 @@ A high-performance, automated web scraper that extracts tax rulings from Taxsutr
 
 For each ruling published today, the scraper extracts:
 - **Title**: Full ruling title
-- **Published Date**: When the ruling was published on Taxsutra
-- **Ruling Date**: Actual date of the legal ruling
-- **Conclusion**: Key conclusions from the ruling
-- **Decision Summary**: Detailed summary of the decision
-- **Case Law Information**: Relevant case details and citations
+- **Published Date**: When the ruling was published
+- **Category**: Type of tax ruling (GST, Company & SEBI, FEMA & Banking)
+- **Content**: Detailed content of the ruling or update
 - **URL**: Direct link to the ruling
 
 ## 🎯 Use Cases
@@ -43,6 +41,7 @@ automated-tax-rulings-scraper/
 ├── src/
 │   ├── main.py              # Main application entry point
 │   ├── scraper.py           # Core scraping functionality
+│   ├── taxmann_scraper.py   # Taxmann.com specific scraper
 │   └── sheets_uploader.py   # Google Sheets integration
 ├── config/
 │   ├── settings.py          # Configuration management
@@ -50,7 +49,7 @@ automated-tax-rulings-scraper/
 ├── docs/                    # Documentation
 ├── logs/                    # Application logs
 ├── downloads/               # JSON backups
-└── deploy/                  # Deployment scripts
+└── env.example              # Example environment variables
 ```
 
 ## ⚡ Quick Start
@@ -79,7 +78,7 @@ pip install -r requirements.txt
 
 ### 4. Update Configuration
 ```bash
-cp .env.example .env
+cp env.example .env
 # Edit .env with your settings
 ```
 
@@ -102,9 +101,13 @@ python3 src/main.py
 SPREADSHEET_ID=your_google_sheet_id
 SERVICE_ACCOUNT_FILE=config/credentials/service-account.json
 
-# Scraping Configuration
-TAXSUTRA_USERNAME=your_username
-TAXSUTRA_PASSWORD=your_password
+# Taxsutra Login Credentials
+TAXSUTRA_USERNAME=your_taxsutra_username
+TAXSUTRA_PASSWORD=your_taxsutra_password
+
+# Taxmann Login Credentials
+TAXMANN_EMAIL=your_taxmann_email
+TAXMANN_PASSWORD=your_taxmann_password
 
 # Logging Configuration
 LOG_LEVEL=INFO
@@ -200,6 +203,12 @@ chmod +x src/main.py
 chmod 600 config/credentials/service-account.json
 ```
 
+**Taxmann Login Issues**
+```bash
+# Check if your Taxmann credentials are correct in .env file
+# Ensure you have an active subscription to Taxmann.com
+```
+
 See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for detailed solutions.
 
 ## 📈 Sample Output
@@ -209,11 +218,9 @@ See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for detailed solutions.
   {
     "Title": "HC: Grants TDS credit withheld for TDS return incorrectly filed...",
     "Published Date": "Jun 09, 2025",
-    "Ruling Date": "2025-05-27",
-    "Conclusion": "The High Court allowed the appeal and granted the TDS credit...",
-    "Decision Summary": "The assessee filed TDS return under Form 26QB instead of 27Q...",
-    "Case Law Information": "Case Name: PARAG KESHAV BOPARDIKAR Vs. DCIT...",
-    "URL": "https://www.taxsutra.com/dt/rulings/..."
+    "Category": "GST",
+    "Content": "The High Court allowed the appeal and granted the TDS credit...",
+    "URL": "https://www.taxmann.com/research/gst/..."
   }
 ]
 ```

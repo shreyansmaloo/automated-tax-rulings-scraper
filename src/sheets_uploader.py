@@ -890,3 +890,289 @@ class SheetsUploader:
                 logger.info("No cells found to format for litigation summary")
         except Exception as e:
             logger.error(f"❌ Litigation summary formatting failed: {e}") 
+            
+    def prepare_taxmann_data_for_upload(self, taxmann_data):
+        """Prepare Taxmann data for Google Sheets upload"""
+        headers = self.get_sheet_headers()
+        
+        # Start with headers
+        data = [headers]
+        
+        # Add data rows
+        for update in taxmann_data:
+            # Extract date
+            date_value = update.get("Date", "N/A")
+            
+            # Category (GST, Company & SEBI, or FEMA & Banking)
+            category = update.get("Category", "N/A")
+            
+            # Sub-Category from the topic
+            sub_category = update.get("Sub-Category", "General")
+            
+            # Format summary as requested:
+            # Title
+            # 
+            # Content (1st paragraph + 3rd paragraph)
+            # 
+            # Source: Taxmann.com - URL
+            title = update.get("Title", "")
+            content = update.get("Content", "")
+            url = update.get("URL", "")
+            source_line = f"Source: Taxmann.com - {url}"
+            
+            summary = f"{title}\n\n{content}\n\n{source_line}"
+            
+            row = [
+                date_value,
+                category,
+                sub_category,
+                summary
+            ]
+            data.append(row)
+        
+        return data
+    
+    def upload_taxmann_data(self, taxmann_data, sheet_name="Sheet1", clear_first=False):
+        """Upload Taxmann data to Google Sheets - preserving existing data by default"""
+        if not self.service:
+            if not self.authenticate():
+                return False
+        
+        try:
+            # Prepare data
+            data = self.prepare_taxmann_data_for_upload(taxmann_data)
+            
+            if clear_first:
+                # Only clear if explicitly requested
+                self.clear_sheet(sheet_name)
+                range_name = f'{sheet_name}!A1'
+                logger.info("🧹 Cleared existing sheet data")
+            else:
+                # Preserve existing data - find next available row
+                next_row = self.get_next_available_row(sheet_name)
+                
+                if next_row == 1:
+                    # Sheet is empty, include headers
+                    range_name = f'{sheet_name}!A1'
+                    logger.info("📄 Sheet is empty, adding headers and data")
+                else:
+                    # Sheet has data, skip headers and append to next row
+                    data = data[1:]  # Remove headers from new data
+                    range_name = f'{sheet_name}!A{next_row}'
+                    logger.info(f"📋 Appending data starting from row {next_row} (preserving existing data)")
+            
+            # Create the value range object
+            value_range = {
+                'values': data
+            }
+            
+            # Upload data
+            result = self.service.spreadsheets().values().update(
+                spreadsheetId=self.config.SPREADSHEET_ID,
+                range=range_name,
+                valueInputOption='RAW',
+                body=value_range
+            ).execute()
+            
+            cells_updated = result.get('updatedCells', 0)
+            logger.info(f"✅ Successfully uploaded Taxmann data to Google Sheets")
+            logger.info(f"📊 {cells_updated} cells updated")
+            logger.info(f"📋 {len(taxmann_data)} updates uploaded")
+            
+            # Apply formatting only if we're starting fresh or it's the first upload
+            if clear_first or next_row == 1:
+                self.format_sheet(sheet_name)
+            
+            # Apply rich text formatting to the newly added rows
+            self.format_taxmann_summary_lines(sheet_name, start_row=next_row if next_row > 1 else 2)
+            
+            return True
+            
+        except HttpError as e:
+            logger.error(f"❌ Failed to upload Taxmann data to Google Sheets: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"❌ Unexpected error during Taxmann data upload: {e}")
+            return False
+    
+    def format_taxmann_summary_lines(self, sheet_name="Sheet1", start_row=2):
+        """Apply rich text formatting to Taxmann summary cells: title bold, source line orange"""
+        try:
+            # Get sheet ID
+            sheet_metadata = self.service.spreadsheets().get(
+                spreadsheetId=self.config.SPREADSHEET_ID
+            ).execute()
+            
+            sheet_id = None
+            for sheet in sheet_metadata.get('sheets', []):
+                if sheet['properties']['title'] == sheet_name:
+                    sheet_id = sheet['properties']['sheetId']
+                    break
+            
+            if sheet_id is None:
+                logger.warning(f"Sheet '{sheet_name}' not found for Taxmann summary formatting")
+                return
+            
+            # Get all data from the summary column to process each cell
+            range_name = f'{sheet_name}!D:D'  # Summary column (D)
+            result = self.service.spreadsheets().values().get(
+                spreadsheetId=self.config.SPREADSHEET_ID,
+                range=range_name
+            ).execute()
+            
+            values = result.get('values', [])
+            if len(values) < start_row:
+                logger.info("No data to format in Taxmann summary column")
+                return
+            
+            requests = []
+            
+            # Process each cell from start_row onwards
+            for row_idx in range(start_row - 1, len(values)):
+                cell_value = values[row_idx][0] if values[row_idx] else ""
+                
+                if not cell_value.strip():
+                    continue
+                
+                # Split into paragraphs using double newlines
+                paragraphs = [p.strip() for p in cell_value.split('\n\n') if p.strip()]
+                
+                if len(paragraphs) < 3:
+                    # If less than 3 paragraphs, apply basic formatting only
+                    requests.append({
+                        "repeatCell": {
+                            "range": {
+                                "sheetId": sheet_id,
+                                "startRowIndex": row_idx,
+                                "endRowIndex": row_idx + 1,
+                                "startColumnIndex": 3,  # Column D
+                                "endColumnIndex": 4
+                            },
+                            "cell": {
+                                "userEnteredFormat": {
+                                    "wrapStrategy": "WRAP",
+                                    "verticalAlignment": "TOP"
+                                }
+                            },
+                            "fields": "userEnteredFormat.wrapStrategy,userEnteredFormat.verticalAlignment"
+                        }
+                    })
+                    continue
+                
+                # Find positions of each paragraph in the original text
+                paragraph_positions = []
+                current_search_pos = 0
+                
+                for i, paragraph in enumerate(paragraphs):
+                    # Find the start position of this paragraph in the original text
+                    start_pos = cell_value.find(paragraph, current_search_pos)
+                    if start_pos == -1:
+                        # If not found, skip this paragraph
+                        continue
+                    
+                    end_pos = start_pos + len(paragraph)
+                    paragraph_positions.append((i, start_pos, end_pos))
+                    current_search_pos = end_pos
+                
+                # Sort paragraph positions by start index
+                paragraph_positions.sort(key=lambda x: x[1])  # Sort by start_pos
+                
+                # Create text format runs
+                text_format_runs = []
+                current_pos = 0
+                
+                for i, start_pos, end_pos in paragraph_positions:
+                    # Add a format run for any gap before this paragraph (if any)
+                    if current_pos < start_pos:
+                        # Default formatting for the gap (newlines, etc.)
+                        text_format_runs.append({
+                            "startIndex": current_pos,
+                            "format": {}  # Default formatting
+                        })
+                    
+                    # Determine formatting for this paragraph
+                    if i == 0:  # First paragraph (title) - bold
+                        paragraph_format = {
+                            "bold": True
+                        }
+                    elif i == len(paragraphs) - 1:  # Last paragraph (source line) - orange
+                        paragraph_format = {
+                            "foregroundColor": {
+                                "red": 1.0,
+                                "green": 0.647,
+                                "blue": 0.0
+                            }
+                        }
+                    else:  # Middle paragraphs (content) - default
+                        paragraph_format = {}
+                    
+                    # Add format run for this paragraph
+                    text_format_runs.append({
+                        "startIndex": start_pos,
+                        "format": paragraph_format
+                    })
+                    
+                    current_pos = end_pos
+                
+                # Add final format run for any remaining text after the last paragraph
+                if current_pos < len(cell_value):
+                    text_format_runs.append({
+                        "startIndex": current_pos,
+                        "format": {}  # Default formatting
+                    })
+                
+                # Remove consecutive runs with the same formatting to optimize
+                optimized_runs = []
+                for run in text_format_runs:
+                    if not optimized_runs or optimized_runs[-1]["format"] != run["format"]:
+                        optimized_runs.append(run)
+                
+                text_format_runs = optimized_runs
+                
+                # Create the update request for rich text
+                requests.append({
+                    "updateCells": {
+                        "range": {
+                            "sheetId": sheet_id,
+                            "startRowIndex": row_idx,
+                            "endRowIndex": row_idx + 1,
+                            "startColumnIndex": 3,  # Column D
+                            "endColumnIndex": 4
+                        },
+                        "rows": [{
+                            "values": [{
+                                "userEnteredValue": {
+                                    "stringValue": cell_value
+                                },
+                                "userEnteredFormat": {
+                                    "wrapStrategy": "WRAP",
+                                    "verticalAlignment": "TOP"
+                                },
+                                "textFormatRuns": text_format_runs if text_format_runs else None
+                            }]
+                        }],
+                        "fields": "userEnteredValue,userEnteredFormat.wrapStrategy,userEnteredFormat.verticalAlignment" + (",textFormatRuns" if text_format_runs else "")
+                    }
+                })
+            
+            # Execute all formatting requests in batches (Google Sheets has limits)
+            if requests:
+                batch_size = 50  # Reduced batch size for rich text formatting
+                for i in range(0, len(requests), batch_size):
+                    batch_requests = requests[i:i + batch_size]
+                    
+                    self.service.spreadsheets().batchUpdate(
+                        spreadsheetId=self.config.SPREADSHEET_ID,
+                        body={"requests": batch_requests}
+                    ).execute()
+                    
+                    logger.info(f"✅ Applied rich text formatting to Taxmann batch {i//batch_size + 1}")
+                
+                logger.info("✅ Applied rich text formatting to Taxmann data - title bold, source line orange")
+            else:
+                logger.info("No cells found to format for Taxmann data")
+            
+        except Exception as e:
+            logger.error(f"❌ Taxmann rich text formatting failed: {e}")
+            # Fallback to basic formatting
+            self._apply_simple_formatting(sheet_name, start_row)
