@@ -1,35 +1,19 @@
-"""
-Core scraping functionality for automated tax rulings
-Optimized for performance with headless Chrome support
-"""
-
 import logging
 import time
 import re
-import os
 import requests
-from datetime import date, datetime, timedelta
 from pathlib import Path
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
-import json
 
 from config.settings import config
-from src.utils.base_scraper import BaseScraper
-from src.utils.driver_utils import setup_driver
+from src.utils.base_scraper import TaxSutraBaseScraper
 
 logger = logging.getLogger(__name__)
 
-class ITRulingsScraper(BaseScraper):
+class RulingsScraper(TaxSutraBaseScraper):
     """Main scraper class for automated tax rulings"""
     
     def __init__(self, driver):
@@ -42,9 +26,9 @@ class ITRulingsScraper(BaseScraper):
         if driver is None:
             raise ValueError("Driver must be provided to ITRulingsScraper")
             
-        super().__init__(driver)        
+        super().__init__(driver)
         self.target_url = "https://www.taxsutra.com/dt/rulings"
-
+    
     def download_pdf(self, pdf_url, ruling_title, ruling_data):
         """Download PDF file for a ruling"""
         try:
@@ -405,15 +389,15 @@ class ITRulingsScraper(BaseScraper):
                 except:
                     pass
             
-            # if pdf_link:
-            #     pdf_path = self.download_pdf(pdf_link, data.get("Title", "ruling"), data)
-            #     if pdf_path:
-            #         data["PDF Path"] = pdf_path
-            #         logger.info(f"✅ PDF downloaded: {pdf_path}")
-            #     else:
-            #         logger.warning("❌ Failed to download PDF")
-            # else:
-            #     logger.debug("No PDF download link found on this page")
+            if pdf_link:
+                pdf_path = self.download_pdf(pdf_link, data.get("Title", "ruling"), data)
+                if pdf_path:
+                    data["PDF Path"] = pdf_path
+                    logger.info(f"✅ PDF downloaded: {pdf_path}")
+                else:
+                    logger.warning("❌ Failed to download PDF")
+            else:
+                logger.debug("No PDF download link found on this page")
                 
         except Exception as e:
             logger.warning(f"Error while looking for PDF: {e}")
@@ -421,13 +405,13 @@ class ITRulingsScraper(BaseScraper):
         return data
     
     def extract_ruling_info_from_main_page(self, ruling_row):
-        logger.info("Extracting ruling info from main page")
+        """Extract basic ruling information from main page listing"""
         try:
             # Extract URL and title
             link = ruling_row.find_element(By.CSS_SELECTOR, "h3 > a")
             url = link.get_attribute("href")
             title = link.text.strip()
-
+            
             # Extract published date from the main page
             # Look for date elements in the ruling row
             date_elements = ruling_row.find_elements(By.CSS_SELECTOR, ".podcastTimeDate, .field--name-field-published-date .field__item, .views-field-field-published-date .field__item")
@@ -466,16 +450,19 @@ class ITRulingsScraper(BaseScraper):
             return None
 
     def scrape_yesterday_rulings(self, target_url):
-        """Scrape rulings from yesterday or weekend if today is Monday - with early date filtering"""        
-        self.driver.get(target_url)
+        """Scrape rulings from yesterday or weekend if today is Monday - with early date filtering"""
+        self.target_url = target_url
+        self.driver.get(self.target_url)
+        time.sleep(self.config.PAGE_LOAD_WAIT)
         try:
-            # Get target dates (yesterday or weekend dates if Monday)
-            today = date.today()
-            if today.weekday() == 0:  # Monday
-                target_dates = self.get_weekend_dates()
+            target_dates = self.get_target_dates()
+            # if not target_dates:
+            #     logger.info("Today is a weekend, not generating any data.")
+            #     return []
+                
+            if len(target_dates) > 1:
                 logger.info(f"Today is Monday, looking for weekend rulings published on: {', '.join(target_dates)}")
             else:
-                target_dates = [self.get_yesterday_string()]
                 logger.info(f"Looking for rulings published on: {target_dates[0]}")
             
             all_rulings = []
@@ -569,12 +556,12 @@ class ITRulingsScraper(BaseScraper):
                     break
             
             if len(all_rulings) == 0:
-                if today.weekday() == 0:  # Monday
+                if len(target_dates) > 1:  # Weekend dates
                     logger.warning("⚠️ No rulings found for the weekend")
                 else:
                     logger.warning("⚠️ No rulings found for yesterday")
             else:
-                if today.weekday() == 0:  # Monday
+                if len(target_dates) > 1:  # Weekend dates
                     logger.info(f"✅ Scraping completed. Found {len(all_rulings)} rulings from the weekend")
                 else:
                     logger.info(f"✅ Scraping completed. Found {len(all_rulings)} rulings from yesterday")
@@ -586,28 +573,20 @@ class ITRulingsScraper(BaseScraper):
             return []
             
         finally:
-            logger.info("Rulings Scraper completed")
+            logger.info("Completed Rulings")
             # self.cleanup()             
-class ITExpertCornerScraper(BaseScraper):
+class ExpertCornerScraper(TaxSutraBaseScraper):
     """Scraper for Taxsutra Expert Corner"""
-    
     def __init__(self, driver):
-        """
-        Initialize the ITExpertCornerScraper
-        
-        Args:
-            driver: WebDriver instance to use for scraping
-        """
-        if driver is None:
-            raise ValueError("Driver must be provided to ITExpertCornerScraper")
-            
-        super().__init__(driver)        
+        super().__init__(driver)
         self.target_url = "https://www.taxsutra.com/dt/experts-corner"
 
     def get_article_elements(self):
         """Wait for and return all <li> article elements inside the content wrapper."""
-
-
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        import time
         try:
             time.sleep(10)  # Wait for articles to load after filter submit
             wrapper = WebDriverWait(self.driver, self.config.WEBDRIVER_TIMEOUT).until(
@@ -631,8 +610,6 @@ class ITExpertCornerScraper(BaseScraper):
         except Exception:
             return None, None
 
-    # normalize_date_for_compare is now inherited from BaseScraper
-
     def extract_article_tag(self, li):
         """Extract and return the text under class 'articleTag articlePurpleTag' from a single <li> element."""
         from selenium.webdriver.common.by import By
@@ -642,15 +619,13 @@ class ITExpertCornerScraper(BaseScraper):
         except Exception:
             return ""
 
-    def scrape_yesterday_expert_corner(self):
+    def scrape_yesterday_expert_corner(self, target_url):
         """Scrape all expert articles and return a JSON list of dicts with 'title' and 'date' for yesterday (or weekend if Monday)."""
+        self.target_url = target_url
+        self.driver.get(self.target_url)
+        time.sleep(self.config.PAGE_LOAD_WAIT)
         import json
-        if not self.setup_driver():
-            return []
-        else:
-            self.driver.get(self.target_url)
-            time.sleep(10)
-        try:
+        try:    
             # Get target dates based on current day
             target_dates = self.get_target_dates()
             if not target_dates:
@@ -672,34 +647,24 @@ class ITExpertCornerScraper(BaseScraper):
             logger.info(f"Returned all expert articles for yesterday or weekend (filtered for 'Expert Articles').")
             return results
         finally:
-            logger.info("Expert Corner Scraper completed")
+            logger.info("Completed Expert")
             # self.cleanup()
-class ITLitigationTrackerScraper(BaseScraper):
+class LitigationTrackerScraper(TaxSutraBaseScraper):
     """Scraper for Taxsutra Litigation Tracker"""
-    
     def __init__(self, driver):
-        """
-        Initialize the ITLitigationTrackerScraper
-        
-        Args:
-            driver: WebDriver instance to use for scraping
-        """
-        if driver is None:
-            raise ValueError("Driver must be provided to ITLitigationTrackerScraper")
-            
-        super().__init__(driver)        
+        super().__init__(driver)
         self.target_url = "https://www.taxsutra.com/dt/litigation-tracker"
     
-    def scrape_yesterday_litigation_tracker(self):
+    def scrape_yesterday_litigation_tracker(self, target_url):
         """Scrape litigation tracker articles for yesterday (or weekend if Monday) and return JSON with date, title, summary."""
+        self.target_url = target_url
+        self.driver.get(self.target_url)
+        time.sleep(self.config.PAGE_LOAD_WAIT)
 
         
         if not self.setup_driver():
             return []
-        else:
-            self.driver.get(self.target_url)
-            time.sleep(10)
-        try:
+        try:                
             # Wait for articles to load
             time.sleep(10)
             wrapper = self.driver.find_element(By.XPATH, '//*[@class="views-infinite-scroll-content-wrapper clearfix"]')
@@ -758,6 +723,6 @@ class ITLitigationTrackerScraper(BaseScraper):
             
             return results
         finally:
-            logger.info("Litigation Tracker Scraper completed")
+            logger.info("Completed Litigation")
             # self.cleanup()
             

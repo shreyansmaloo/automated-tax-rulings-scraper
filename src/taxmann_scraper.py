@@ -19,17 +19,8 @@ logger = logging.getLogger(__name__)
 class TaxmannBaseScraper(BaseScraper):
     """Base scraper class for Taxmann.com"""
     
-    def __init__(self, driver=None):
-        """
-        Initialize the TaxmannBaseScraper
-        
-        Args:
-            driver: WebDriver instance. Should be provided by the caller.
-        """
-        # Initialize with the provided driver
+    def __init__(self, driver):
         super().__init__(driver)
-        
-        # Set child-specific properties
         self.is_logged_in = False
     
     def _check_if_already_logged_in(self):
@@ -437,22 +428,13 @@ class TaxmannBaseScraper(BaseScraper):
             return []
 
 class TaxmannGSTScraper(TaxmannBaseScraper):
-    """Scraper for Taxmann GST updates"""
+    """Scraper for GST updates from Taxmann.com"""
     
-    def __init__(self, driver):
-        """
-        Initialize the TaxmannGSTScraper
-        
-        Args:
-            driver: WebDriver instance to use for scraping
-        """
-        if driver is None:
-            raise ValueError("Driver must be provided to TaxmannGSTScraper")
-            
-        super().__init__(driver)
-        self.target_url = "https://www.taxmann.com/research/gst"
+    def __init__(self):
+        super().__init__()
+        self.base_url = "https://www.taxmann.com/"
         self.category = "GST"
-        self.is_logged_in = False
+        self.target_url = "https://www.taxmann.com/research/gst/caselaws"
     
     def navigate_to_gst_updates(self):
         """Navigate to GST updates section with retry mechanism"""
@@ -887,17 +869,8 @@ class TaxmannGSTScraper(TaxmannBaseScraper):
 class TaxmannCompanySEBIScraper(TaxmannGSTScraper):
     """Scraper for Company & SEBI Laws updates from Taxmann.com"""
     
-    def __init__(self, driver):
-        """
-        Initialize the TaxmannCompanySEBIScraper
-        
-        Args:
-            driver: WebDriver instance to use for scraping
-        """
-        if driver is None:
-            raise ValueError("Driver must be provided to TaxmannCompanySEBIScraper")
-            
-        super().__init__(driver)
+    def __init__(self):
+        super().__init__()
         self.category = "Company & SEBI"
         self.target_url = "http://taxmann.com/research/company-and-sebi"
     
@@ -1019,17 +992,8 @@ class TaxmannCompanySEBIScraper(TaxmannGSTScraper):
 class TaxmannFEMABankingScraper(TaxmannGSTScraper):
     """Scraper for FEMA & Banking updates from Taxmann.com"""
     
-    def __init__(self, driver):
-        """
-        Initialize the TaxmannFEMABankingScraper
-        
-        Args:
-            driver: WebDriver instance to use for scraping
-        """
-        if driver is None:
-            raise ValueError("Driver must be provided to TaxmannFEMABankingScraper")
-            
-        super().__init__(driver)
+    def __init__(self):
+        super().__init__()
         self.category = "FEMA & Banking"
     
     def navigate_to_fema_banking_updates(self):
@@ -1146,3 +1110,112 @@ class TaxmannFEMABankingScraper(TaxmannGSTScraper):
         finally:
             # Use the inherited cleanup method
             self.cleanup()
+
+class TaxmannArchivesScraper(TaxmannBaseScraper):
+    """Scraper for Taxmann Archives updates (https://www.taxmann.com/research/all/archives)"""
+
+    def __init__(self, driver):
+        super().__init__(driver)
+        self.base_url = "https://www.taxmann.com/"
+        self.category = "Archives"
+        self.target_url = "https://www.taxmann.com/research/all/archives"
+
+    def navigate_to_archives(self):
+        logger.info("Navigating to Taxmann.com Archives page...")
+        logger.info(f"Target URL: {self.target_url}")
+        self.driver.get(self.target_url)
+        time.sleep(self.config.PAGE_LOAD_WAIT * 2)
+        logger.info("✅ Successfully navigated to Archives page")
+        return True
+
+    def scrape_yesterday_archives_updates(self):
+        if not self.setup_driver():
+            return []
+        try:
+            if not self.navigate_to_archives():
+                logger.error("Failed to navigate to Archives page, aborting scraping")
+                return []
+
+            # Compute yesterday's date in 'DD MMM YYYY' format
+            yesterday = (datetime.now() - timedelta(days=1)).strftime("%d %b %Y")
+            logger.info(f"Looking for updates with date: {yesterday}")
+
+            # Wait for the archives list to load
+            WebDriverWait(self.driver, self.config.WEBDRIVER_TIMEOUT).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, ".archives-list, .archives, .archive-list, .list, .container"))
+            )
+
+            # Find all date headers and their corresponding update lists
+            date_headers = self.driver.find_elements(By.XPATH, f"//h3[contains(text(), '{yesterday}')]")
+            if not date_headers:
+                logger.warning(f"No updates found for {yesterday}")
+                return []
+
+            all_updates = []
+            for header in date_headers:
+                # The updates are usually in the next sibling (ul or div)
+                try:
+                    updates_container = header.find_element(By.XPATH, "following-sibling::*[1]")
+                    update_links = updates_container.find_elements(By.TAG_NAME, "a")
+                except Exception as e:
+                    logger.warning(f"Could not find updates container for date header: {e}")
+                    continue
+                for link in update_links:
+                    url = link.get_attribute("href")
+                    title = link.text.strip() or "No Title"
+                    if not url or not url.startswith("http"):
+                        continue
+                    logger.info(f"Processing update: {title} | {url}")
+                    # Extract content from the update page
+                    content = self.extract_1st_and_3rd_paragraph(url)
+                    if not content:
+                        logger.info(f"Skipping update (less than 3 paragraphs): {url}")
+                        continue
+                    update_data = {
+                        "Title": title,
+                        "Content": content,
+                        "Category": self.category,
+                        "Sub-Category": "General",
+                        "Date": yesterday,
+                        "Source": "Taxmann.com",
+                        "URL": url
+                    }
+                    all_updates.append(update_data)
+            logger.info(f"✅ Scraping completed. Found {len(all_updates)} updates for {yesterday}")
+            return all_updates
+        except Exception as e:
+            logger.error(f"❌ Archives scraping failed with error: {e}")
+            return []
+        finally:
+            self.cleanup()
+
+    def extract_1st_and_3rd_paragraph(self, url):
+        try:
+            self.driver.get(url)
+            time.sleep(self.config.PAGE_LOAD_WAIT)
+            selectors = [
+                ".article-content p, .content p, .body p",
+                "#content p, .post-content p, .entry-content p",
+                ".case-law-content p, .update-content p",
+                "[class*='article'] p, [class*='content'] p, [class*='body'] p",
+                "[id*='article'] p, [id*='content'] p, [id*='body'] p"
+            ]
+            paragraphs = []
+            for selector in selectors:
+                try:
+                    WebDriverWait(self.driver, 2).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                    )
+                    paragraphs = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    if paragraphs:
+                        break
+                except:
+                    continue
+            if len(paragraphs) < 3:
+                return None
+            first_paragraph = self.safe_get_text(paragraphs[0])
+            third_paragraph = self.safe_get_text(paragraphs[2])
+            return f"{first_paragraph}\n\n{third_paragraph}"
+        except Exception as e:
+            logger.warning(f"Failed to extract paragraphs from {url}: {e}")
+            return None

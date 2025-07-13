@@ -286,7 +286,7 @@ class SheetsUploader:
             # Default to row 1 if there's an error
             return 1
 
-    def upload_data(self, rulings_data, sheet_name="Sheet1", clear_first=False):
+    def upload_data(self, taxsutra_rulings_data, sheet_name="Sheet1", clear_first=False):
         """Upload rulings data to Google Sheets - preserving existing data by default"""
         if not self.service:
             if not self.authenticate():
@@ -294,7 +294,7 @@ class SheetsUploader:
         
         try:
             # Prepare data
-            data = self.prepare_data_for_upload(rulings_data)
+            data = self.prepare_data_for_upload(taxsutra_rulings_data)
             
             if clear_first:
                 # Only clear if explicitly requested
@@ -331,7 +331,7 @@ class SheetsUploader:
             cells_updated = result.get('updatedCells', 0)
             logger.info(f"✅ Successfully uploaded data to Google Sheets")
             logger.info(f"📊 {cells_updated} cells updated")
-            logger.info(f"📋 {len(rulings_data)} rulings uploaded")
+            logger.info(f"📋 {len(taxsutra_rulings_data)} rulings uploaded")
             
             # Apply formatting only if we're starting fresh or it's the first upload
             if clear_first or next_row == 1:
@@ -719,7 +719,7 @@ class SheetsUploader:
             logger.error(f"Failed to get first sheet name: {e}")
             return None
 
-    def upload_expert_corner_data(self, expert_corner_data, sheet_name=None, clear_first=False):
+    def upload_expert_corner_data(self, taxsutra_expert_corner_data, sheet_name=None, clear_first=False):
         """Upload expert corner data to Google Sheets with custom mapping. If sheet_name is None, use the first sheet."""
         if not self.service:
             if not self.authenticate():
@@ -733,7 +733,7 @@ class SheetsUploader:
             # Prepare data
             headers = ["Date", "Category", "Sub-Category", "Summary"]
             data = [headers]
-            for article in expert_corner_data:
+            for article in taxsutra_expert_corner_data:
                 row = [
                     article.get("date", "N/A"),
                     "Direct tax",
@@ -761,13 +761,13 @@ class SheetsUploader:
             cells_updated = result.get('updatedCells', 0)
             logger.info(f"✅ Successfully uploaded expert corner data to Google Sheets")
             logger.info(f"📊 {cells_updated} cells updated")
-            logger.info(f"📋 {len(expert_corner_data)} expert articles uploaded")
+            logger.info(f"📋 {len(taxsutra_expert_corner_data)} expert articles uploaded")
             return True
         except Exception as e:
             logger.error(f"❌ Failed to upload expert corner data to Google Sheets: {e}")
             return False
 
-    def upload_litigation_tracker_data(self, litigation_data, sheet_name=None, clear_first=False):
+    def upload_litigation_tracker_data(self, taxsutra_litigation_data, sheet_name=None, clear_first=False):
         """Upload litigation tracker data to Google Sheets with custom mapping and formatting."""
         if not self.service:
             if not self.authenticate():
@@ -780,7 +780,7 @@ class SheetsUploader:
                     return False
             headers = ["Date", "Category", "Sub-Category", "Summary"]
             data = [headers]
-            for entry in litigation_data:
+            for entry in taxsutra_litigation_data:
                 # Ensure summary is present and not just title
                 title = entry.get('title', '')
                 summary_text = entry.get('summary', '')
@@ -813,7 +813,7 @@ class SheetsUploader:
             cells_updated = result.get('updatedCells', 0)
             logger.info(f"✅ Successfully uploaded litigation tracker data to Google Sheets")
             logger.info(f"📊 {cells_updated} cells updated")
-            logger.info(f"📋 {len(litigation_data)} litigation tracker articles uploaded")
+            logger.info(f"📋 {len(taxsutra_litigation_data)} litigation tracker articles uploaded")
             # Apply formatting: bold first line of summary
             self.format_litigation_summary(sheet_name, start_row=next_row)
             return True

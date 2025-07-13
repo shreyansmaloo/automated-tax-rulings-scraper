@@ -16,7 +16,7 @@ from src.utils.date_utils import (
 
 logger = logging.getLogger(__name__)
 
-class BaseScraper:
+class TaxSutraBaseScraper:
     """
     Base Scraper class that provides common functionality for all scrapers
     
@@ -56,7 +56,7 @@ class BaseScraper:
             self.driver = setup_driver(self.config)
         return self.driver is not None
     
-    def login_to_taxsutra(self, target_url="https://www.taxsutra.com/"):
+    def login_to_taxsutra(self, target_url=None):
         """
         Login to Taxsutra website with retry mechanism
         
@@ -69,23 +69,6 @@ class BaseScraper:
         logger.info("Checking if login to Taxsutra is needed...")
         return login_to_taxsutra(self.driver, self.config, target_url=target_url)
     
-    def login_and_navigate(self, target_url="https://www.taxsutra.com/"):
-        """
-        Login and navigate to the specified target URL.
-        If target_url is None, uses self.target_url instead.
-        
-        Args:
-            target_url: Optional URL to navigate to after login
-            
-        Returns:
-            bool: True if login and navigation successful, False otherwise
-        """
-        url_to_use = target_url if target_url else self.target_url
-        if not self.login_to_taxsutra(url_to_use):
-            logger.error("Failed to login, aborting scraping")
-            return False
-        return True
-
     def login_to_taxmann(self):
         """
         Login to Taxmann website with retry mechanism
@@ -208,8 +191,12 @@ class BaseScraper:
         # If today is Saturday or Sunday, return empty list
         if today.weekday() in [5, 6]:  # 5=Saturday, 6=Sunday
             logger.info("Today is Saturday or Sunday, not generating any data.")
-            return []
-        
+            # Remove after testing today - 13/07/25
+            target_dates = [self.get_yesterday_string()]
+            logger.info(f"Looking for data published on: {target_dates[0]}")
+            return target_dates
+            # Remove after testing today - 13/07/25
+
         # If today is Monday, return weekend dates
         if today.weekday() == 0:  # Monday
             target_dates = self.get_weekend_dates()

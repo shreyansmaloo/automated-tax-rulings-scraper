@@ -20,15 +20,6 @@ from webdriver_manager.chrome import ChromeDriverManager
 logger = logging.getLogger(__name__)
 
 def setup_driver(config):
-    """
-    Set up and configure Chrome WebDriver with performance optimizations
-    
-    Args:
-        config: Configuration object with settings
-        
-    Returns:
-        WebDriver instance or None if setup fails
-    """
     try:
         logger.info("Setting up Chrome WebDriver...")
         
@@ -42,73 +33,25 @@ def setup_driver(config):
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--disable-infobars")
         chrome_options.add_argument("--window-size=1920,1080")
+        chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
         
-        # Set headless mode based on configuration
-        if config.HEADLESS_MODE:
-            chrome_options.add_argument("--headless=new")
-            logger.info("Running in headless mode")
+        # Add user data directory to use your Chrome profile
+        chrome_profile_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "chrome_profile")
+        chrome_options.add_argument(f"--user-data-dir={chrome_profile_path}")
         
         # Set Chrome binary path from config
         if os.path.exists(config.CHROME_BINARY_PATH):
             chrome_options.binary_location = config.CHROME_BINARY_PATH
             logger.info(f"Using Chrome binary from config: {config.CHROME_BINARY_PATH}")
         
-        # Detect system architecture and OS
-        system = platform.system()
-        machine = platform.machine()
-        logger.info(f"Detected system: {system} {machine}")
-        
-        # Special handling for Mac ARM (Apple Silicon)
-        if system == "Darwin" and machine == "arm64":
-            logger.info("Using special handling for Mac ARM architecture")
+        # Create Chrome driver directly
+        try:
+            driver = webdriver.Chrome(options=chrome_options)
+            logger.info("Chrome WebDriver created successfully with user profile")
+        except Exception as e:
+            logger.error(f"Failed to create Chrome WebDriver with user profile: {e}")
+            return None
             
-            # Use our downloaded ChromeDriver
-            local_chromedriver_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 
-                                                "drivers/chromedriver-mac-arm64/chromedriver")
-            
-            if os.path.exists(local_chromedriver_path):
-                logger.info(f"Using local ChromeDriver found at: {local_chromedriver_path}")
-                # Make sure it's executable
-                try:
-                    os.chmod(local_chromedriver_path, 0o755)
-                    service = Service(executable_path=local_chromedriver_path)
-                    
-                    # Add debugging information
-                    logger.info("Creating Chrome WebDriver with local chromedriver")
-                    driver = webdriver.Chrome(service=service, options=chrome_options)
-                    logger.info("Chrome WebDriver created successfully")
-                    
-                except Exception as e:
-                    logger.error(f"Error using local ChromeDriver: {e}")
-                    logger.info("Falling back to direct instantiation")
-                    try:
-                        driver = webdriver.Chrome(options=chrome_options)
-                    except Exception as inner_e:
-                        logger.error(f"Direct instantiation also failed: {inner_e}")
-                        return None
-            else:
-                logger.warning(f"Local ChromeDriver not found at {local_chromedriver_path}, trying direct instantiation")
-                try:
-                    driver = webdriver.Chrome(options=chrome_options)
-                except Exception as e:
-                    logger.error(f"Direct instantiation failed: {e}")
-                    return None
-                
-        else:
-            # Standard approach for other platforms
-            try:
-                driver = webdriver.Chrome(options=chrome_options)
-                logger.info("Using system ChromeDriver")
-            except Exception as e:
-                logger.info(f"System ChromeDriver not available: {e}. Using webdriver-manager...")
-                try:
-                    service = Service(ChromeDriverManager().install())
-                    driver = webdriver.Chrome(service=service, options=chrome_options)
-                    logger.info("Using webdriver-manager ChromeDriver")
-                except Exception as inner_e:
-                    logger.error(f"WebDriver manager installation failed: {inner_e}")
-                    return None
-        
         # Set page load timeout
         driver.set_page_load_timeout(config.PAGE_LOAD_TIMEOUT)
         
@@ -129,8 +72,8 @@ def setup_driver(config):
     except Exception as e:
         logger.error(f"❌ Failed to set up Chrome WebDriver: {e}")
         return None
-
-def login_to_taxsutra(driver, config, target_url=None):
+    
+def login_to_taxsutra(driver, config):
     """
     Login to Taxsutra.com with retry mechanism
     
@@ -142,62 +85,69 @@ def login_to_taxsutra(driver, config, target_url=None):
     Returns:
         bool: True if login successful, False otherwise
     """
+    
+    # Check if already logged in by looking for a known element only visible when logged in
+    try:
+        driver.get("https://www.taxsutra.com/user/login")
+        time.sleep(config.PAGE_LOAD_WAIT)
+        # Check for a logout link or user profile element that only appears when logged in
+        if "logout" in driver.page_source.lower() or "my account" in driver.page_source.lower():
+            logger.info("Already logged in to Taxsutra.com, skipping login form.")
+            return True
+    except Exception as e:
+        logger.warning(f"Could not verify login status before login attempt: {e}")
+        
     try:
         logger.info("Logging in to Taxsutra.com...")
         
-        # Navigate to login page
-        driver.get("https://www.taxsutra.com/user/login")
-        time.sleep(config.PAGE_LOAD_WAIT)
-        
-        # Check if already logged in
-        if "My Account" in driver.page_source:
-            logger.info("Already logged in to Taxsutra.com")
-            
-            # Navigate to target URL if provided
-            if target_url:
-                logger.info(f"Navigating to {target_url}")
-                driver.get(target_url)
-                time.sleep(config.PAGE_LOAD_WAIT)
-                
+        if "logout" in driver.page_source.lower() or "my account" in driver.page_source.lower():
+            logger.info("Already logged in to Taxsutra.com, skipping login form.")
             return True
-        
-        # Fill login form
-        try:
-            # Wait for username field
-            username_field = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
-                EC.presence_of_element_located((By.ID, "edit-name"))
-            )
-            username_field.clear()
-            username_field.send_keys(config.TAXSUTRA_USERNAME)
+    
+        else:
+            # Navigate to login page
+            driver.get("https://www.taxsutra.com/user/login")
+            time.sleep(config.PAGE_LOAD_WAIT)
             
-            # Wait for password field
-            password_field = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
-                EC.presence_of_element_located((By.ID, "edit-pass"))
-            )
-            password_field.clear()
-            password_field.send_keys(config.TAXSUTRA_PASSWORD)
-            
-            # Click login button
-            login_button = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
-                EC.element_to_be_clickable((By.ID, "edit-submit"))
-            )
-            login_button.click()
+            # Fill login form
 
             try:
-                force_login_button = WebDriverWait(driver, 8).until(
-                    EC.element_to_be_clickable((By.ID, "edit-reset"))
+                # Wait for username field
+                username_field = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
+                    EC.presence_of_element_located((By.ID, "edit-name"))
                 )
-                force_login_button.click()
-                logger.info("Handled force login")
-            except:
-                logger.debug("No force login required")
+                username_field.clear()
+                username_field.send_keys(config.TAXSUTRA_USERNAME)
+                
+                # Wait for password field
+                password_field = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
+                    EC.presence_of_element_located((By.ID, "edit-pass"))
+                )
+                password_field.clear()
+                password_field.send_keys(config.TAXSUTRA_PASSWORD)
+                
+                # Click login button
+                login_button = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
+                    EC.element_to_be_clickable((By.ID, "edit-submit"))
+                )
+                login_button.click()
 
-            # Wait for login to complete
-            time.sleep(config.PAGE_LOAD_WAIT)
+                try:
+                    force_login_button = WebDriverWait(driver, 8).until(
+                        EC.element_to_be_clickable((By.ID, "edit-reset"))
+                    )
+                    force_login_button.click()
+                    logger.info("Handled force login")
+                except:
+                    logger.debug("No force login required")
 
-        except Exception as e:
-            logger.error(f"❌ Error during login form submission: {e}")
-            return False
+                # Wait for login to complete
+                time.sleep(config.PAGE_LOAD_WAIT)
+
+            except Exception as e:
+
+                logger.error(f"❌ Error during login form submission: {e}")
+                return False
             
     except Exception as e:
         logger.error(f"❌ Login to Taxsutra.com failed: {e}")
@@ -218,30 +168,43 @@ def login_to_taxmann(driver, config):
         logger.info("Logging in to Taxmann.com...")
         
         # Navigate to login page
-        driver.get("https://www.taxmann.com/login")
-        time.sleep(config.PAGE_LOAD_WAIT)
-        
-        # Check if already logged in
-        if "My Account" in driver.page_source or "Log out" in driver.page_source:
-            logger.info("Already logged in to Taxmann.com")
-            return True
+        driver.get("https://www.taxmann.com/gp/auth/login")
         
         # Fill login form
         try:
-            # Wait for email field
+            try:
+                login_with_email_btn = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
+                    EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Login with Email')]"))
+                )
+                logger.info("email typing")
+                login_with_email_btn.click()
+            except Exception as e:
+                logger.warning(f"'Login with Email' button not found or not clickable: {e}")
+                pass
+            
+
+            # logger.info("email typing")
+            # login_with_email_btn.click()
+            # Now wait for email field and enter email
             email_field = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
-                EC.presence_of_element_located((By.ID, "email"))
+                EC.presence_of_element_located((By.NAME, "email"))
             )
             email_field.clear()
             email_field.send_keys(config.TAXMANN_EMAIL)
-            
+            logger.info("email typed")
+
+
+            logger.info("password typing")
             # Wait for password field
             password_field = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
-                EC.presence_of_element_located((By.ID, "password"))
+                EC.presence_of_element_located((By.NAME, "password"))
             )
             password_field.clear()
             password_field.send_keys(config.TAXMANN_PASSWORD)
             
+            logger.info("password typed")
+            time.sleep(5)
+
             # Click login button
             login_button = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
                 EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']"))
@@ -249,16 +212,12 @@ def login_to_taxmann(driver, config):
             login_button.click()
             
             # Wait for login to complete
-            time.sleep(config.PAGE_LOAD_WAIT)
+            # time.sleep(config.PAGE_LOAD_WAIT)
             
             # Check if login successful
-            if "My Account" in driver.page_source or "Log out" in driver.page_source:
-                logger.info("✅ Successfully logged in to Taxmann.com")
-                return True
-            else:
-                logger.warning("❌ Login to Taxmann.com failed - incorrect credentials or site issue")
-                return False
-                
+            time.sleep(10)
+            driver.get("https://www.taxmann.com/research/gst")
+
         except Exception as e:
             logger.error(f"❌ Error during login form submission: {e}")
             return False

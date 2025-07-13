@@ -106,3 +106,6 @@ docs/_build/
 
 # Credentials
 .env*
+
+# Chrome profile
+chrome_profile/
