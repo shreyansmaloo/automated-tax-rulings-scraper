@@ -170,31 +170,44 @@ def login_to_taxmann(driver, config):
         # Navigate to login page
         driver.get("https://www.taxmann.com/gp/auth/login")
         
+        # Check if already logged in by looking for a user/account element or absence of login form
+        try:
+            # Wait briefly for page to load
+            WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
+            # If a user/account/profile icon is present, assume already logged in
+            # (Taxmann shows a user icon with class 'user-profile' or similar when logged in)
+            user_icon = driver.find_elements(By.CSS_SELECTOR, ".user-profile, .profile-dropdown, .dropdown-user, .fa-user")
+            if user_icon:
+                logger.info("✅ Already logged in to Taxmann.com, skipping login form.")
+                return True
+            # Alternatively, if the login form is not present, assume logged in
+            login_form = driver.find_elements(By.NAME, "email")
+            if not login_form:
+                logger.info("✅ Login form not found, possibly already logged in to Taxmann.com.")
+                return True
+        except Exception as e:
+            logger.debug(f"Could not determine login state: {e}")
+
         # Fill login form
         try:
             try:
                 login_with_email_btn = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
                     EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Login with Email')]"))
                 )
-                logger.info("email typing")
                 login_with_email_btn.click()
             except Exception as e:
                 logger.warning(f"'Login with Email' button not found or not clickable: {e}")
                 pass
             
-
-            # logger.info("email typing")
-            # login_with_email_btn.click()
             # Now wait for email field and enter email
             email_field = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
                 EC.presence_of_element_located((By.NAME, "email"))
             )
             email_field.clear()
             email_field.send_keys(config.TAXMANN_EMAIL)
-            logger.info("email typed")
 
-
-            logger.info("password typing")
             # Wait for password field
             password_field = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
                 EC.presence_of_element_located((By.NAME, "password"))
@@ -202,7 +215,6 @@ def login_to_taxmann(driver, config):
             password_field.clear()
             password_field.send_keys(config.TAXMANN_PASSWORD)
             
-            logger.info("password typed")
             time.sleep(5)
 
             # Click login button
@@ -216,7 +228,6 @@ def login_to_taxmann(driver, config):
             
             # Check if login successful
             time.sleep(10)
-            driver.get("https://www.taxmann.com/research/gst")
 
         except Exception as e:
             logger.error(f"❌ Error during login form submission: {e}")

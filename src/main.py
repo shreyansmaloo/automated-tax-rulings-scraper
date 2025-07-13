@@ -16,8 +16,9 @@ sys.path.insert(0, str(project_root))
 
 from config.settings import config, logger
 from src.taxsuta_scraper import RulingsScraper, ExpertCornerScraper, LitigationTrackerScraper
+from src.taxmann_scraper import TaxmannArchivesScraper
 from src.sheets_uploader import SheetsUploader
-from src.utils.driver_utils import setup_driver, login_to_taxsutra
+from src.utils.driver_utils import setup_driver, login_to_taxsutra, login_to_taxmann
 
 def save_json_backup(rulings_data):
     """Save rulings data to JSON file as backup"""
@@ -76,21 +77,19 @@ def main():
         taxsutra_litigation_tracker_data = taxsutra_litigation_tracker_scraper.scrape_yesterday_litigation_tracker(taxsutra_litigation_tracker_scraper.target_url)
         
         # logger.info("📡 Starting Taxmann.com scraping...")
-        # login_to_taxmann(driver, config)
+        login_to_taxmann(driver, config)
 
         # Initialize Taxsutra Data Sets
         taxmann_gst_data = []
-        taxmann_company_sebi_data = []
+        taxmann_direct_tax_data = []
         taxmann_fema_banking_data = []
 
         # Initialize Taxmann scrapers      
-        # taxmann_archives_scraper = TaxmannArchivesScraper(driver)
-
+        taxmann_scraper = TaxmannArchivesScraper(driver)
+        
         # Scrape Taxmann data
-        # logger.info("📡 Starting Taxmann.com scraping...")
-        # taxmann_gst_data = taxmann_gst_scraper.scrape_yesterday_gst_updates()
-        # taxmann_company_sebi_data = taxmann_company_sebi_scraper.scrape_yesterday_company_sebi_updates()
-        # taxmann_fema_banking_data = taxmann_fema_banking_scraper.scrape_yesterday_fema_banking_updates()
+        logger.info("📡 Starting Taxmann.com scraping...")
+        taxmann_scraper.scrape_yesterday_archives_updates(taxmann_gst_data, taxmann_direct_tax_data, taxmann_fema_banking_data)
         
         # Combine all data for backup
         all_data = {
@@ -101,7 +100,7 @@ def main():
             },
             "taxmann": {
                 "gst": taxmann_gst_data,
-                "company_sebi": taxmann_company_sebi_data,
+                "direct_tax": taxmann_direct_tax_data,
                 "fema_banking": taxmann_fema_banking_data
             }
         }
@@ -122,8 +121,7 @@ def main():
                 any_uploaded = True
             else:
                 logger.error("❌ Failed to upload to Google Sheets")
-                logger.info(f"💾 Data saved locally: {json_file}")
-        
+                logger.info(f"💾 Data saved locally: {json_file}") 
         else:
             logger.warning(f"⚠️ No rulings found for {time_period}")
             # return 1 
@@ -161,9 +159,9 @@ def main():
         else:
             logger.warning(f"⚠️ No Taxmann GST updates found for {time_period}")
         
-        if taxmann_company_sebi_data:
-            logger.info(f"✅ Successfully scraped {len(taxmann_company_sebi_data)} Taxmann Company & SEBI updates")
-            if uploader.upload_taxmann_data(taxmann_company_sebi_data):
+        if taxmann_direct_tax_data:
+            logger.info(f"✅ Successfully scraped {len(taxmann_direct_tax_data)} Taxmann Company & SEBI updates")
+            if uploader.upload_taxmann_data(taxmann_direct_tax_data):
                 logger.info("✅ Successfully uploaded Taxmann Company & SEBI data to Google Sheets")
                 any_uploaded = True
             else:
@@ -194,7 +192,7 @@ def main():
         logger.info(f"📋 Taxsutra Expert Corner processed: {len(taxsutra_expert_corner_data)}")
         logger.info(f"📋 Taxsutra Litigation Tracker processed: {len(taxsutra_litigation_tracker_data)}")
         logger.info(f"📋 Taxmann GST updates processed: {len(taxmann_gst_data)}")
-        logger.info(f"📋 Taxmann Company & SEBI updates processed: {len(taxmann_company_sebi_data)}")
+        logger.info(f"📋 Taxmann Company & SEBI updates processed: {len(taxmann_direct_tax_data)}")
         logger.info(f"📋 Taxmann FEMA & Banking updates processed: {len(taxmann_fema_banking_data)}")
         logger.info(f"⏱️ Total time: {duration}")
         logger.info(f"📊 Google Sheets updated: {uploader.get_sheet_url()}")

@@ -554,10 +554,11 @@ class SheetsUploader:
                         }
                     elif i == 2:  # Third paragraph (summary_line) - orange
                         paragraph_format = {
+                            "bold": True,
                             "foregroundColor": {
-                                "red": 1.0,
-                                "green": 0.647,
-                                "blue": 0.0
+                                "red": 0.776,
+                                "green": 0.353,
+                                "blue": 0.067
                             }
                         }
                     else:  # Second paragraph (conclusion) - default
@@ -916,11 +917,12 @@ class SheetsUploader:
             # 
             # Source: Taxmann.com - URL
             title = update.get("Title", "")
-            content = update.get("Content", "")
-            url = update.get("URL", "")
-            source_line = f"Source: Taxmann.com - {url}"
-            
-            summary = f"{title}\n\n{content}\n\n{source_line}"
+            content = update.get("Summary", "")
+            citation = update.get("Citation", "")
+            if citation:
+                summary = f"{title}\n\n{content}\n\n{citation}"
+            else:
+                summary = f"{title}\n\n{content}"
             
             row = [
                 date_value,
@@ -1097,10 +1099,11 @@ class SheetsUploader:
                         }
                     elif i == len(paragraphs) - 1:  # Last paragraph (source line) - orange
                         paragraph_format = {
+                            "bold": True,
                             "foregroundColor": {
-                                "red": 1.0,
-                                "green": 0.647,
-                                "blue": 0.0
+                                "red": 0.776,
+                                "green": 0.353,
+                                "blue": 0.067
                             }
                         }
                     else:  # Middle paragraphs (content) - default
