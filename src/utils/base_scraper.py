@@ -7,7 +7,7 @@ import logging
 from datetime import date
 
 from config.settings import config
-from src.utils.driver_utils import setup_driver, login_to_taxsutra, login_to_taxmann, handle_paywall_login
+from src.utils.driver_utils import setup_driver, handle_paywall_login
 from src.utils.date_utils import (
     get_today_string, get_yesterday_string, get_weekend_dates,
     is_today_date, is_target_date, normalize_date_for_compare,
@@ -55,29 +55,6 @@ class TaxSutraBaseScraper:
         if self.driver is None:
             self.driver = setup_driver(self.config)
         return self.driver is not None
-    
-    def login_to_taxsutra(self, target_url=None):
-        """
-        Login to Taxsutra website with retry mechanism
-        
-        Args:
-            target_url: Optional URL to navigate to after login
-            
-        Returns:
-            bool: True if login successful, False otherwise
-        """
-        logger.info("Checking if login to Taxsutra is needed...")
-        return login_to_taxsutra(self.driver, self.config, target_url=target_url)
-    
-    def login_to_taxmann(self):
-        """
-        Login to Taxmann website with retry mechanism
-        
-        Returns:
-            bool: True if login successful, False otherwise
-        """
-        logger.info("Checking if login to Taxmann is needed...")
-        return login_to_taxmann(self.driver, self.config)
     
     def handle_paywall_login(self):
         """
@@ -191,11 +168,7 @@ class TaxSutraBaseScraper:
         # If today is Saturday or Sunday, return empty list
         if today.weekday() in [5, 6]:  # 5=Saturday, 6=Sunday
             logger.info("Today is Saturday or Sunday, not generating any data.")
-            # Remove after testing today - 13/07/25
-            target_dates = [self.get_yesterday_string()]
-            logger.info(f"Looking for data published on: {target_dates[0]}")
-            return target_dates
-            # Remove after testing today - 13/07/25
+            return []
 
         # If today is Monday, return weekend dates
         if today.weekday() == 0:  # Monday

@@ -491,25 +491,92 @@ class SheetsUploader:
                 
                 if len(paragraphs) < 3:
                     # If less than 3 paragraphs, apply basic formatting only
-                    requests.append({
-                        "repeatCell": {
-                            "range": {
-                                "sheetId": sheet_id,
-                                "startRowIndex": row_idx,
-                                "endRowIndex": row_idx + 1,
-                                "startColumnIndex": 3,  # Column D
-                                "endColumnIndex": 4
-                            },
-                            "cell": {
-                                "userEnteredFormat": {
-                                    "wrapStrategy": "WRAP",
-                                    "verticalAlignment": "TOP"
-                                }
-                            },
-                            "fields": "userEnteredFormat.wrapStrategy,userEnteredFormat.verticalAlignment"
-                        }
-                    })
+                    # But if at least 1 paragraph, make the first paragraph (title) bold
+                    if len(paragraphs) >= 1:
+                        title = paragraphs[0]
+                        start_pos = cell_value.find(title)
+                        end_pos = start_pos + len(title)
+                        text_format_runs = []
+                        if start_pos > 0:
+                            # Add default formatting for any leading text (should be rare)
+                            text_format_runs.append({
+                                "startIndex": 0,
+                                "format": {}
+                            })
+                        # Bold for title
+                        text_format_runs.append({
+                            "startIndex": start_pos,
+                            "format": {"bold": True}
+                        })
+                        if end_pos < len(cell_value):
+                            # Default formatting for rest
+                            text_format_runs.append({
+                                "startIndex": end_pos,
+                                "format": {}
+                            })
+                        requests.append({
+                            "updateCells": {
+                                "range": {
+                                    "sheetId": sheet_id,
+                                    "startRowIndex": row_idx,
+                                    "endRowIndex": row_idx + 1,
+                                    "startColumnIndex": 3,
+                                    "endColumnIndex": 4
+                                },
+                                "rows": [{
+                                    "values": [{
+                                        "userEnteredValue": {"stringValue": cell_value},
+                                        "textFormatRuns": text_format_runs,
+                                        "userEnteredFormat": {
+                                            "wrapStrategy": "WRAP",
+                                            "verticalAlignment": "TOP"
+                                        }
+                                    }]
+                                }],
+                                "fields": "userEnteredValue,textFormatRuns,userEnteredFormat.wrapStrategy,userEnteredFormat.verticalAlignment"
+                            }
+                        })
+                    else:
+                        # No paragraphs, just apply basic formatting
+                        requests.append({
+                            "repeatCell": {
+                                "range": {
+                                    "sheetId": sheet_id,
+                                    "startRowIndex": row_idx,
+                                    "endRowIndex": row_idx + 1,
+                                    "startColumnIndex": 3,  # Column D
+                                    "endColumnIndex": 4
+                                },
+                                "cell": {
+                                    "userEnteredFormat": {
+                                        "wrapStrategy": "WRAP",
+                                        "verticalAlignment": "TOP"
+                                    }
+                                },
+                                "fields": "userEnteredFormat.wrapStrategy,userEnteredFormat.verticalAlignment"
+                            }
+                        })
                     continue
+                    # # If less than 3 paragraphs, apply basic formatting only
+                    # requests.append({
+                    #     "repeatCell": {
+                    #         "range": {
+                    #             "sheetId": sheet_id,
+                    #             "startRowIndex": row_idx,
+                    #             "endRowIndex": row_idx + 1,
+                    #             "startColumnIndex": 3,  # Column D
+                    #             "endColumnIndex": 4
+                    #         },
+                    #         "cell": {
+                    #             "userEnteredFormat": {
+                    #                 "wrapStrategy": "WRAP",
+                    #                 "verticalAlignment": "TOP"
+                    #             }
+                    #         },
+                    #         "fields": "userEnteredFormat.wrapStrategy,userEnteredFormat.verticalAlignment"
+                    #     }
+                    # })
+                    # continue
                 
                 # Build rich text runs for each paragraph
                 text_format_runs = []
@@ -1041,25 +1108,92 @@ class SheetsUploader:
                 
                 if len(paragraphs) < 3:
                     # If less than 3 paragraphs, apply basic formatting only
-                    requests.append({
-                        "repeatCell": {
-                            "range": {
-                                "sheetId": sheet_id,
-                                "startRowIndex": row_idx,
-                                "endRowIndex": row_idx + 1,
-                                "startColumnIndex": 3,  # Column D
-                                "endColumnIndex": 4
-                            },
-                            "cell": {
-                                "userEnteredFormat": {
-                                    "wrapStrategy": "WRAP",
-                                    "verticalAlignment": "TOP"
-                                }
-                            },
-                            "fields": "userEnteredFormat.wrapStrategy,userEnteredFormat.verticalAlignment"
-                        }
-                    })
+                    # But if at least 1 paragraph, make the first paragraph (title) bold
+                    if len(paragraphs) >= 1:
+                        title = paragraphs[0]
+                        start_pos = cell_value.find(title)
+                        end_pos = start_pos + len(title)
+                        text_format_runs = []
+                        if start_pos > 0:
+                            # Add default formatting for any leading text (should be rare)
+                            text_format_runs.append({
+                                "startIndex": 0,
+                                "format": {}
+                            })
+                        # Bold for title
+                        text_format_runs.append({
+                            "startIndex": start_pos,
+                            "format": {"bold": True}
+                        })
+                        if end_pos < len(cell_value):
+                            # Default formatting for rest
+                            text_format_runs.append({
+                                "startIndex": end_pos,
+                                "format": {}
+                            })
+                        requests.append({
+                            "updateCells": {
+                                "range": {
+                                    "sheetId": sheet_id,
+                                    "startRowIndex": row_idx,
+                                    "endRowIndex": row_idx + 1,
+                                    "startColumnIndex": 3,
+                                    "endColumnIndex": 4
+                                },
+                                "rows": [{
+                                    "values": [{
+                                        "userEnteredValue": {"stringValue": cell_value},
+                                        "textFormatRuns": text_format_runs,
+                                        "userEnteredFormat": {
+                                            "wrapStrategy": "WRAP",
+                                            "verticalAlignment": "TOP"
+                                        }
+                                    }]
+                                }],
+                                "fields": "userEnteredValue,textFormatRuns,userEnteredFormat.wrapStrategy,userEnteredFormat.verticalAlignment"
+                            }
+                        })
+                    else:
+                        # No paragraphs, just apply basic formatting
+                        requests.append({
+                            "repeatCell": {
+                                "range": {
+                                    "sheetId": sheet_id,
+                                    "startRowIndex": row_idx,
+                                    "endRowIndex": row_idx + 1,
+                                    "startColumnIndex": 3,  # Column D
+                                    "endColumnIndex": 4
+                                },
+                                "cell": {
+                                    "userEnteredFormat": {
+                                        "wrapStrategy": "WRAP",
+                                        "verticalAlignment": "TOP"
+                                    }
+                                },
+                                "fields": "userEnteredFormat.wrapStrategy,userEnteredFormat.verticalAlignment"
+                            }
+                        })
                     continue
+                    # # If less than 3 paragraphs, apply basic formatting only
+                    # requests.append({
+                    #     "repeatCell": {
+                    #         "range": {
+                    #             "sheetId": sheet_id,
+                    #             "startRowIndex": row_idx,
+                    #             "endRowIndex": row_idx + 1,
+                    #             "startColumnIndex": 3,  # Column D
+                    #             "endColumnIndex": 4
+                    #         },
+                    #         "cell": {
+                    #             "userEnteredFormat": {
+                    #                 "wrapStrategy": "WRAP",
+                    #                 "verticalAlignment": "TOP"
+                    #             }
+                    #         },
+                    #         "fields": "userEnteredFormat.wrapStrategy,userEnteredFormat.verticalAlignment"
+                    #     }
+                    # })
+                    # continue
                 
                 # Find positions of each paragraph in the original text
                 paragraph_positions = []

@@ -27,6 +27,20 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
         logger.info("Navigating to Taxmann.com Archives page...")
         logger.info(f"Target URL: {self.target_url}")
         self.driver.get(self.target_url)
+        try:
+            close_buttons = self.driver.find_elements(By.CLASS_NAME, "close")
+            if close_buttons:
+                for btn in close_buttons:
+                    try:
+                        if btn.is_displayed() and btn.is_enabled():
+                            btn.click()
+                            logger.info("Closed pop-up by clicking 'close' button.")
+                            time.sleep(1)
+                            break
+                    except Exception as e:
+                        logger.debug(f"Error clicking close button: {e}")
+        except Exception as e:
+            logger.debug(f"Error clicking close button: {e}")
         time.sleep(self.config.PAGE_LOAD_WAIT * 2)
         logger.info("✅ Successfully navigated to Archives page")
         return True
@@ -112,7 +126,7 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
 
             logger.info(f"Found { len(combined_updates)} article links matching date {yesterday}")
 
-            for item in combined_updates[0:1]:
+            for item in combined_updates:
                 url = item.get("URL")
                 category = item.get("Category")
                 date_val = item.get("Date", yesterday)
@@ -143,6 +157,7 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
                         subcat_text = subcat_elem.text.strip() if subcat_elem else ""
                         # Try to extract sub-category from the pipe-separated text 
                         # e.g. "11 Jul 2025 | [2025] 175 taxmann.com 959 (Madras)[16-06-2025] | GST | Case Laws |  237 Views"
+                        sub_category = "General"
                         if subcat_text:
                             parts = [p.strip() for p in subcat_text.split("|") if p.strip()]
                             sub_category = parts[-2]

@@ -456,10 +456,10 @@ class RulingsScraper(TaxSutraBaseScraper):
         time.sleep(self.config.PAGE_LOAD_WAIT)
         try:
             target_dates = self.get_target_dates()
-            # if not target_dates:
-            #     logger.info("Today is a weekend, not generating any data.")
-            #     return []
-                
+            if not target_dates:
+                logger.info("Today is a weekend, not generating any data.")
+                return []
+            
             if len(target_dates) > 1:
                 logger.info(f"Today is Monday, looking for weekend rulings published on: {', '.join(target_dates)}")
             else:
@@ -679,7 +679,6 @@ class LitigationTrackerScraper(TaxSutraBaseScraper):
                 
             # Normalize target dates for comparison
             normalized_targets = [self.normalize_date_for_compare(d) for d in target_dates]
-            yesterday_normalized = self.normalize_date_for_compare(self.get_yesterday_string())
             
             results = []
             for div in article_divs:

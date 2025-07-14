@@ -87,30 +87,19 @@ def login_to_taxsutra(driver, config):
     """
     
     # Check if already logged in by looking for a known element only visible when logged in
-    try:
-        driver.get("https://www.taxsutra.com/user/login")
-        time.sleep(config.PAGE_LOAD_WAIT)
-        # Check for a logout link or user profile element that only appears when logged in
-        if "logout" in driver.page_source.lower() or "my account" in driver.page_source.lower():
-            logger.info("Already logged in to Taxsutra.com, skipping login form.")
-            return True
-    except Exception as e:
-        logger.warning(f"Could not verify login status before login attempt: {e}")
-        
-    try:
-        logger.info("Logging in to Taxsutra.com...")
-        
-        if "logout" in driver.page_source.lower() or "my account" in driver.page_source.lower():
-            logger.info("Already logged in to Taxsutra.com, skipping login form.")
-            return True
-    
-        else:
-            # Navigate to login page
-            driver.get("https://www.taxsutra.com/user/login")
-            time.sleep(config.PAGE_LOAD_WAIT)
-            
-            # Fill login form
+    driver.get("https://www.taxsutra.com/user/login")
+    time.sleep(config.PAGE_LOAD_WAIT)
 
+    logger.info("Logging in to Taxsutra.com...")
+    # Check if already logged in by looking for the presence of 'signInLinksWrap' class
+    try:
+        # If the signInLinksWrap element is NOT present, proceed to login
+        sign_in_elements = driver.find_elements(By.XPATH, "//div[@class='signInLinksWrap']")
+        if sign_in_elements:
+            logger.info("No 'signInLinksWrap' found, assuming already logged in.")
+            return True
+        else:
+            logger.info("'signInLinksWrap' found, proceeding to login.")
             try:
                 # Wait for username field
                 username_field = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
@@ -145,10 +134,9 @@ def login_to_taxsutra(driver, config):
                 time.sleep(config.PAGE_LOAD_WAIT)
 
             except Exception as e:
-
                 logger.error(f"❌ Error during login form submission: {e}")
                 return False
-            
+        
     except Exception as e:
         logger.error(f"❌ Login to Taxsutra.com failed: {e}")
         return False
@@ -168,66 +156,85 @@ def login_to_taxmann(driver, config):
         logger.info("Logging in to Taxmann.com...")
         
         # Navigate to login page
-        driver.get("https://www.taxmann.com/gp/auth/login")
-        
-        # Check if already logged in by looking for a user/account element or absence of login form
+        driver.get("https://www.taxmann.com")
+        time.sleep(config.PAGE_LOAD_WAIT)
+        # Check for "sign in" button by class and click it if present
         try:
-            # Wait briefly for page to load
-            WebDriverWait(driver, 5).until(
-                EC.presence_of_element_located((By.TAG_NAME, "body"))
-            )
-            # If a user/account/profile icon is present, assume already logged in
-            # (Taxmann shows a user icon with class 'user-profile' or similar when logged in)
-            user_icon = driver.find_elements(By.CSS_SELECTOR, ".user-profile, .profile-dropdown, .dropdown-user, .fa-user")
-            if user_icon:
-                logger.info("✅ Already logged in to Taxmann.com, skipping login form.")
-                return True
-            # Alternatively, if the login form is not present, assume logged in
-            login_form = driver.find_elements(By.NAME, "email")
-            if not login_form:
-                logger.info("✅ Login form not found, possibly already logged in to Taxmann.com.")
-                return True
+            sign_in_buttons = driver.find_elements(By.CLASS_NAME, "sign-in")
+            if sign_in_buttons:
+                for btn in sign_in_buttons:
+                    try:
+                        if btn.is_displayed() and btn.is_enabled():
+                            btn.click()
+                            logger.info("Clicked 'sign in' button.")
+                            time.sleep(2)
+                            break
+                    except Exception as e:
+                        logger.debug(f"Error clicking 'sign in' button: {e}")
         except Exception as e:
-            logger.debug(f"Could not determine login state: {e}")
-
+            logger.debug(f"Error searching for 'sign in' button: {e}")
+        
         # Fill login form
         try:
-            try:
-                login_with_email_btn = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
-                    EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Login with Email')]"))
+            # Check if already logged in by looking for a known element only visible when logged in
+            active_user = driver.find_elements(By.CLASS_NAME, "active-user")
+            if active_user:
+                logger.info("active_user found, assuming already logged in.")
+                return True
+            else:
+                logger.info("no 'active_user' found, proceeding to login.")
+                time.sleep(config.PAGE_LOAD_WAIT)
+                # Check if a pop-up with a close button is present and close it if found
+                try:
+                    close_buttons = driver.find_elements(By.CLASS_NAME, "close")
+                    if close_buttons:
+                        for btn in close_buttons:
+                            try:
+                                if btn.is_displayed() and btn.is_enabled():
+                                    btn.click()
+                                    logger.info("Closed pop-up by clicking 'close' button.")
+                                    time.sleep(1)
+                                    break
+                            except Exception as e:
+                                logger.debug(f"Error clicking close button: {e}")
+                except Exception as e:
+                    logger.debug(f"Error searching for close button: {e}")
+                try:
+                    login_with_email_btn = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
+                        EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Login with Email')]"))
+                    )
+                    login_with_email_btn.click()
+                except Exception as e:
+                    logger.warning(f"'Login with Email' button not found or not clickable: {e}")
+                    pass
+                
+                # Now wait for email field and enter email
+                email_field = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
+                    EC.presence_of_element_located((By.NAME, "email"))
                 )
-                login_with_email_btn.click()
-            except Exception as e:
-                logger.warning(f"'Login with Email' button not found or not clickable: {e}")
-                pass
-            
-            # Now wait for email field and enter email
-            email_field = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
-                EC.presence_of_element_located((By.NAME, "email"))
-            )
-            email_field.clear()
-            email_field.send_keys(config.TAXMANN_EMAIL)
+                email_field.clear()
+                email_field.send_keys(config.TAXMANN_EMAIL)
 
-            # Wait for password field
-            password_field = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
-                EC.presence_of_element_located((By.NAME, "password"))
-            )
-            password_field.clear()
-            password_field.send_keys(config.TAXMANN_PASSWORD)
-            
-            time.sleep(5)
+                # Wait for password field
+                password_field = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
+                    EC.presence_of_element_located((By.NAME, "password"))
+                )
+                password_field.clear()
+                password_field.send_keys(config.TAXMANN_PASSWORD)
+                
+                time.sleep(5)
 
-            # Click login button
-            login_button = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
-                EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']"))
-            )
-            login_button.click()
-            
-            # Wait for login to complete
-            # time.sleep(config.PAGE_LOAD_WAIT)
-            
-            # Check if login successful
-            time.sleep(10)
+                # Click login button
+                login_button = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
+                    EC.element_to_be_clickable((By.XPATH, "//button[@type='submit']"))
+                )
+                login_button.click()
+                
+                # Wait for login to complete
+                # time.sleep(config.PAGE_LOAD_WAIT)
+                
+                # Check if login successful
+                time.sleep(10)
 
         except Exception as e:
             logger.error(f"❌ Error during login form submission: {e}")
