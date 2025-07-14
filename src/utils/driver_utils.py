@@ -36,8 +36,12 @@ def setup_driver(config):
         chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
         
         # Add user data directory to use your Chrome profile
-        chrome_profile_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "chrome_profile")
-        chrome_options.add_argument(f"--user-data-dir={chrome_profile_path}")
+        # chrome_profile_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "chrome_profile")
+        # chrome_options.add_argument(f"--user-data-dir={chrome_profile_path}")
+
+        profile_dir = os.path.join(os.getcwd(), "chrome_profile")
+        os.makedirs(profile_dir, exist_ok=True)
+        chrome_options.add_argument(f"--user-data-dir={profile_dir}")
         
         # Set Chrome binary path from config
         if os.path.exists(config.CHROME_BINARY_PATH):
