@@ -7,6 +7,7 @@ import logging
 import re
 from datetime import datetime
 from pathlib import Path
+import json
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -26,18 +27,14 @@ class SheetsUploader:
     def authenticate(self):
         """Authenticate with Google Sheets API using service account"""
         try:
-            credentials_path = Path(self.config.SERVICE_ACCOUNT_FILE)
-            
-            if not credentials_path.exists():
-                logger.error(f"Service account file not found: {credentials_path}")
-                return False
+            service_account_details = config.SERVICE_ACCOUNT_DETAILS
             
             # Define the scope
             SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
             
             # Authenticate
-            self.credentials = service_account.Credentials.from_service_account_file(
-                str(credentials_path), scopes=SCOPES
+            self.credentials = service_account.Credentials.from_service_account_info(
+                service_account_details, scopes=SCOPES
             )
             
             # Build the service

@@ -99,7 +99,7 @@ python3 src/main.py
 ```bash
 # Google Sheets Configuration
 SPREADSHEET_ID=your_google_sheet_id
-SERVICE_ACCOUNT_FILE=config/credentials/service-account.json
+SERVICE_ACCOUNT_DETAILS=service-account.json
 
 # Taxsutra Login Credentials
 TAXSUTRA_USERNAME=your_taxsutra_username

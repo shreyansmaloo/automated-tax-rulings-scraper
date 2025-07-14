@@ -7,6 +7,7 @@ import os
 import logging
 from pathlib import Path
 from dotenv import load_dotenv
+import json
 
 # Load environment variables from .env file
 load_dotenv()
@@ -22,7 +23,17 @@ class Config:
     
     # Google Sheets Configuration
     SPREADSHEET_ID = os.getenv("SPREADSHEET_ID", "")
-    SERVICE_ACCOUNT_FILE = os.getenv("SERVICE_ACCOUNT_FILE", "config/credentials/service-account.json")
+    
+    # Parse SERVICE_ACCOUNT_DETAILS as JSON if present
+    _service_account_env = os.getenv("SERVICE_ACCOUNT_DETAILS", "")
+    if _service_account_env:
+        try:
+            SERVICE_ACCOUNT_DETAILS = json.loads(_service_account_env)
+        except Exception as e:
+            print(f"Failed to parse SERVICE_ACCOUNT_DETAILS as JSON: {e}")
+            SERVICE_ACCOUNT_DETAILS = {}
+    else:
+        SERVICE_ACCOUNT_DETAILS = {}
     
     # Taxsutra Login Credentials
     TAXSUTRA_USERNAME = os.getenv("TAXSUTRA_USERNAME", "")
@@ -72,8 +83,8 @@ class Config:
         if not cls.TAXMANN_PASSWORD:
             errors.append("TAXMANN_PASSWORD is required")
             
-        if not Path(cls.SERVICE_ACCOUNT_FILE).exists():
-            errors.append(f"Service account file not found: {cls.SERVICE_ACCOUNT_FILE}")
+        if not cls.SERVICE_ACCOUNT_DETAILS:
+            errors.append("SERVICE_ACCOUNT_DETAILS is required")
             
         if errors:
             raise ValueError("Configuration errors:\n" + "\n".join(f"- {error}" for error in errors))

@@ -21,7 +21,7 @@ The application uses environment variables for configuration, managed through:
 SPREADSHEET_ID=1eknhrQZT8hwH58DJeeFZGOsqh7m7f7kJlS_EZAlZ6HM
 
 # Path to your service account JSON file
-SERVICE_ACCOUNT_FILE=config/credentials/service-account.json
+SERVICE_ACCOUNT_DETAILS=config/credentials/service-account.json
 ```
 
 #### Taxsutra Credentials
@@ -417,7 +417,7 @@ ping google.com
 SPREADSHEET_ID=your_sheet_id_here
 TAXSUTRA_USERNAME=your_username
 TAXSUTRA_PASSWORD=your_password
-SERVICE_ACCOUNT_FILE=config/credentials/service-account.json
+SERVICE_ACCOUNT_DETAILS=config/credentials/service-account.json
 ```
 
 ### Complete Configuration (.env.complete)
@@ -426,7 +426,7 @@ SERVICE_ACCOUNT_FILE=config/credentials/service-account.json
 SPREADSHEET_ID=your_sheet_id_here
 TAXSUTRA_USERNAME=your_username
 TAXSUTRA_PASSWORD=your_password
-SERVICE_ACCOUNT_FILE=config/credentials/service-account.json
+SERVICE_ACCOUNT_DETAILS=config/credentials/service-account.json
 
 # Logging
 LOG_LEVEL=INFO
