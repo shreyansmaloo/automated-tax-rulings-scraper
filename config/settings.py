@@ -50,7 +50,7 @@ class Config:
     
     # Server Configuration
     HEADLESS_MODE = os.getenv("HEADLESS_MODE", "false").lower() == "true"
-    CHROME_BINARY_PATH = os.getenv("CHROME_BINARY_PATH", "/usr/bin/google-chrome")
+    CHROME_BINARY_PATH = os.getenv("CHROME_BINARY_PATH", "")
     DOWNLOAD_DIR = os.getenv("DOWNLOAD_DIR", "downloads")
     
     # Timing Configuration (in seconds)
