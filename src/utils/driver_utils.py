@@ -51,8 +51,17 @@ def setup_driver(config):
         # Use webdriver-manager to automatically manage ChromeDriver (Selenium 4+ syntax)
         from webdriver_manager.chrome import ChromeDriverManager
         from selenium.webdriver.chrome.service import Service
+        import stat
         try:
-            service = Service(ChromeDriverManager().install())
+            chromedriver_path = ChromeDriverManager().install()
+            # Validate chromedriver_path is executable and not a notice file
+            if not os.path.isfile(chromedriver_path) or not os.access(chromedriver_path, os.X_OK):
+                logger.error(f"ChromeDriver path is not executable: {chromedriver_path}")
+                raise RuntimeError(f"Invalid ChromeDriver binary: {chromedriver_path}")
+            if chromedriver_path.endswith('.chromedriver') or 'NOTICE' in chromedriver_path:
+                logger.error(f"ChromeDriverManager returned a non-binary file: {chromedriver_path}")
+                raise RuntimeError(f"Invalid ChromeDriver binary: {chromedriver_path}")
+            service = Service(chromedriver_path)
             driver = webdriver.Chrome(service=service, options=chrome_options)
             logger.info("✅ Chrome WebDriver created successfully.")
         except Exception as e:
