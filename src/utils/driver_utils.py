@@ -36,9 +36,14 @@ def setup_driver(config):
         chrome_options.add_argument("--window-size=1920,1080")
         chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
         
-        # Use a unique temp directory for Chrome profile per run
-        chrome_profile_path = tempfile.mkdtemp(prefix="chrome_profile_")
-        chrome_options.add_argument(f"--user-data-dir={chrome_profile_path}")
+        # Optionally use a unique temp directory for Chrome user profile per run, controlled by config
+        chrome_profile_path = None
+        if getattr(config, "USE_USER_DATA_DIR", False):
+            chrome_profile_path = tempfile.mkdtemp(prefix="chrome_profile_")
+            chrome_options.add_argument(f"--user-data-dir={chrome_profile_path}")
+            logger.info(f"Using unique Chrome user-data-dir: {chrome_profile_path}")
+        else:
+            logger.info("Not using --user-data-dir (stateless Chrome profile)")
         
         # Set Chrome binary path from config
         if os.path.exists(config.CHROME_BINARY_PATH):

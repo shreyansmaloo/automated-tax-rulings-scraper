@@ -15,6 +15,9 @@ load_dotenv()
 class Config:
     """Configuration class for Automated Tax Rulings Scraper"""
     
+    # Enable Chrome user-data-dir per run (set to 'true' to persist browser profile)
+    USE_USER_DATA_DIR = os.getenv("USE_USER_DATA_DIR", "false").lower() == "true"
+    
     # Project paths
     PROJECT_ROOT = Path(__file__).parent.parent
     LOGS_DIR = PROJECT_ROOT / "logs"
