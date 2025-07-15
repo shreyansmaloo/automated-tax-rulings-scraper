@@ -58,17 +58,24 @@ def setup_driver(config):
             if not os.path.isfile(chromedriver_path) or not os.access(chromedriver_path, os.X_OK):
                 logger.warning(f"ChromeDriverManager returned a non-executable file: {chromedriver_path}. Attempting to find correct binary in directory...")
                 chromedriver_dir = os.path.dirname(chromedriver_path)
+                import stat
                 found = False
-                for fname in os.listdir(chromedriver_dir):
-                    fpath = os.path.join(chromedriver_dir, fname)
-                    # Accept only the file named exactly 'chromedriver'
-                    if fname == "chromedriver" and os.path.isfile(fpath) and os.access(fpath, os.X_OK):
-                        chromedriver_path = fpath
-                        found = True
-                        logger.info(f"Found valid ChromeDriver binary at: {chromedriver_path}")
+                # Recursively search for the real chromedriver binary
+                logger.warning(f"Listing all files under {chromedriver_dir} to find the real chromedriver binary...")
+                for root, dirs, files in os.walk(chromedriver_dir):
+                    for fname in files:
+                        fpath = os.path.join(root, fname)
+                        mode = os.stat(fpath).st_mode
+                        logger.info(f"Candidate: {fpath}, mode: {oct(mode)}, exec: {os.access(fpath, os.X_OK)}")
+                        if fname == "chromedriver" and os.path.isfile(fpath) and os.access(fpath, os.X_OK):
+                            chromedriver_path = fpath
+                            found = True
+                            logger.info(f"Found valid ChromeDriver binary at: {chromedriver_path}")
+                            break
+                    if found:
                         break
                 if not found:
-                    logger.error(f"Could not find a valid ChromeDriver binary in {chromedriver_dir}. Contents: {os.listdir(chromedriver_dir)}")
+                    logger.error(f"Could not find a valid ChromeDriver binary in {chromedriver_dir}. Contents: {[(root, files) for root, dirs, files in os.walk(chromedriver_dir)]}")
                     raise RuntimeError(f"Invalid ChromeDriver binary: {chromedriver_path}")
 
             logger.info(f"Using ChromeDriver binary at: {chromedriver_path}")
