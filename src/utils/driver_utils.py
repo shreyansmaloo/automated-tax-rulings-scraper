@@ -56,8 +56,21 @@ def setup_driver(config):
             chromedriver_path = ChromeDriverManager().install()
             # Validate chromedriver_path is executable and not a notice file
             if not os.path.isfile(chromedriver_path) or not os.access(chromedriver_path, os.X_OK):
-                logger.error(f"ChromeDriver path is not executable: {chromedriver_path}")
-                raise RuntimeError(f"Invalid ChromeDriver binary: {chromedriver_path}")
+                logger.warning(f"ChromeDriverManager returned a non-executable file: {chromedriver_path}. Attempting to find correct binary in directory...")
+                chromedriver_dir = os.path.dirname(chromedriver_path)
+                found = False
+                for fname in os.listdir(chromedriver_dir):
+                    fpath = os.path.join(chromedriver_dir, fname)
+                    if os.path.isfile(fpath) and os.access(fpath, os.X_OK) and 'chromedriver' in fname and not fname.endswith('.chromedriver'):
+                        chromedriver_path = fpath
+                        found = True
+                        logger.info(f"Found valid ChromeDriver binary at: {chromedriver_path}")
+                        break
+                if not found:
+                    logger.error(f"Could not find a valid ChromeDriver binary in {chromedriver_dir}")
+                    raise RuntimeError(f"Invalid ChromeDriver binary: {chromedriver_path}")
+
+            logger.info(f"Using ChromeDriver binary at: {chromedriver_path}")
             if chromedriver_path.endswith('.chromedriver') or 'NOTICE' in chromedriver_path:
                 logger.error(f"ChromeDriverManager returned a non-binary file: {chromedriver_path}")
                 raise RuntimeError(f"Invalid ChromeDriver binary: {chromedriver_path}")
