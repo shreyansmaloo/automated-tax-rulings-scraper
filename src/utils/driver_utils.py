@@ -35,7 +35,8 @@ def setup_driver(config):
         chrome_options.add_argument("--disable-infobars")
         chrome_options.add_argument("--window-size=1920,1080")
         chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
-        
+
+      
         # Do NOT use --user-data-dir for maximum compatibility in cloud/serverless environments like Railway.
         # This avoids 'session not created: probably user data directory is already in use' errors.
         # Only stateless Chrome profiles will be used.
