@@ -44,17 +44,16 @@ def setup_driver(config):
         chrome_options.add_argument("--disable-software-rasterizer")
         chrome_options.add_argument("--single-process")
         
-        # Set Chrome binary path from config
-        if os.path.exists(config.CHROME_BINARY_PATH):
-            chrome_options.binary_location = config.CHROME_BINARY_PATH
-            logger.info(f"Using Chrome binary from config: {config.CHROME_BINARY_PATH}")
-        
-        # Create Chrome driver directly
+        # Debug: Log Chrome options being used
+        logger.info(f"Chrome options being used: {chrome_options.arguments}")
+
+        # Use webdriver-manager to automatically manage ChromeDriver
+        from webdriver_manager.chrome import ChromeDriverManager
         try:
-            driver = webdriver.Chrome(options=chrome_options)
-            logger.info("Chrome WebDriver created successfully with user profile")
+            driver = webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
+            logger.info("✅ Chrome WebDriver created successfully.")
         except Exception as e:
-            logger.error(f"Failed to create Chrome WebDriver with user profile: {e}")
+            logger.error(f"❌ Failed to create Chrome WebDriver: {e}")
             return None
         
         # Set page load timeout
