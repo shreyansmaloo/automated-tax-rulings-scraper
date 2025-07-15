@@ -36,17 +36,9 @@ def setup_driver(config):
         chrome_options.add_argument("--window-size=1920,1080")
         chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
         
-        # Optionally use a unique temp directory for Chrome user profile per run, controlled by config
-        chrome_profile_path = None
-        if getattr(config, "USE_USER_DATA_DIR", False):
-            chrome_profile_path = tempfile.mkdtemp(prefix="chrome_profile_")
-            # Make the temp dir world-writable for Chrome compatibility in containers
-            import os
-            os.chmod(chrome_profile_path, 0o777)
-            chrome_options.add_argument(f"--user-data-dir={chrome_profile_path}")
-            logger.info(f"Using unique Chrome user-data-dir: {chrome_profile_path} (chmod 777)")
-        else:
-            logger.info("Not using --user-data-dir (stateless Chrome profile)")
+        # Do NOT use --user-data-dir for maximum compatibility in cloud/serverless environments like Railway.
+        # This avoids 'session not created: probably user data directory is already in use' errors.
+        # Only stateless Chrome profiles will be used.
 
         # Add extra flags for container compatibility
         chrome_options.add_argument("--disable-software-rasterizer")
