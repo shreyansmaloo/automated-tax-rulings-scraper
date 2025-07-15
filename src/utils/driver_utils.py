@@ -40,10 +40,17 @@ def setup_driver(config):
         chrome_profile_path = None
         if getattr(config, "USE_USER_DATA_DIR", False):
             chrome_profile_path = tempfile.mkdtemp(prefix="chrome_profile_")
+            # Make the temp dir world-writable for Chrome compatibility in containers
+            import os
+            os.chmod(chrome_profile_path, 0o777)
             chrome_options.add_argument(f"--user-data-dir={chrome_profile_path}")
-            logger.info(f"Using unique Chrome user-data-dir: {chrome_profile_path}")
+            logger.info(f"Using unique Chrome user-data-dir: {chrome_profile_path} (chmod 777)")
         else:
             logger.info("Not using --user-data-dir (stateless Chrome profile)")
+
+        # Add extra flags for container compatibility
+        chrome_options.add_argument("--disable-software-rasterizer")
+        chrome_options.add_argument("--single-process")
         
         # Set Chrome binary path from config
         if os.path.exists(config.CHROME_BINARY_PATH):
