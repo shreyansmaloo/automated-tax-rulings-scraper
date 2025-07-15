@@ -48,10 +48,12 @@ def setup_driver(config):
         # Debug: Log Chrome options being used
         logger.info(f"Chrome options being used: {chrome_options.arguments}")
 
-        # Use webdriver-manager to automatically manage ChromeDriver
+        # Use webdriver-manager to automatically manage ChromeDriver (Selenium 4+ syntax)
         from webdriver_manager.chrome import ChromeDriverManager
+        from selenium.webdriver.chrome.service import Service
         try:
-            driver = webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
+            service = Service(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=chrome_options)
             logger.info("✅ Chrome WebDriver created successfully.")
         except Exception as e:
             logger.error(f"❌ Failed to create Chrome WebDriver: {e}")
