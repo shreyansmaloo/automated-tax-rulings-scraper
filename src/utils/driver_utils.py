@@ -8,6 +8,7 @@ import logging
 import platform
 import os
 import subprocess
+import tempfile
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -35,13 +36,9 @@ def setup_driver(config):
         chrome_options.add_argument("--window-size=1920,1080")
         chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
         
-        # Add user data directory to use your Chrome profile
-        # chrome_profile_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "chrome_profile")
-        # chrome_options.add_argument(f"--user-data-dir={chrome_profile_path}")
-
-        profile_dir = os.path.join(os.getcwd(), "chrome_profile")
-        os.makedirs(profile_dir, exist_ok=True)
-        chrome_options.add_argument(f"--user-data-dir={profile_dir}")
+        # Use a unique temp directory for Chrome profile per run
+        chrome_profile_path = tempfile.mkdtemp(prefix="chrome_profile_")
+        chrome_options.add_argument(f"--user-data-dir={chrome_profile_path}")
         
         # Set Chrome binary path from config
         if os.path.exists(config.CHROME_BINARY_PATH):
@@ -55,7 +52,7 @@ def setup_driver(config):
         except Exception as e:
             logger.error(f"Failed to create Chrome WebDriver with user profile: {e}")
             return None
-            
+        
         # Set page load timeout
         driver.set_page_load_timeout(config.PAGE_LOAD_TIMEOUT)
         
