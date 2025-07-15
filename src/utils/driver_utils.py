@@ -36,52 +36,12 @@ def setup_driver(config):
         chrome_options.add_argument("--window-size=1920,1080")
         chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
 
-      
-        # Do NOT use --user-data-dir for maximum compatibility in cloud/serverless environments like Railway.
-        # This avoids 'session not created: probably user data directory is already in use' errors.
-        # Only stateless Chrome profiles will be used.
-
         # Add extra flags for container compatibility
         chrome_options.add_argument("--disable-software-rasterizer")
         chrome_options.add_argument("--single-process")
         
         # Debug: Log Chrome options being used
         logger.info(f"Chrome options being used: {chrome_options.arguments}")
-
-        # Use webdriver-manager to automatically manage ChromeDriver (Selenium 4+ syntax)
-        from webdriver_manager.chrome import ChromeDriverManager
-        from selenium.webdriver.chrome.service import Service
-        import stat
-        try:
-            chromedriver_path = ChromeDriverManager().install()
-            chromedriver_dir = os.path.dirname(chromedriver_path)
-            import stat
-            # Always search for the real binary, never trust the initial path
-            logger.warning(f"Listing all files under {chromedriver_dir} to find the real chromedriver binary...")
-            found = False
-            for root, dirs, files in os.walk(chromedriver_dir):
-                for fname in files:
-                    fpath = os.path.join(root, fname)
-                    mode = os.stat(fpath).st_mode
-                    logger.info(f"Candidate: {fpath}, mode: {oct(mode)}, exec: {os.access(fpath, os.X_OK)}")
-                    if fname == "chromedriver" and os.path.isfile(fpath) and os.access(fpath, os.X_OK):
-                        chromedriver_path = fpath
-                        found = True
-                        logger.info(f"Found valid ChromeDriver binary at: {chromedriver_path}")
-                        break
-                if found:
-                    break
-            if not found:
-                logger.error(f"Could not find a valid ChromeDriver binary in {chromedriver_dir}. Contents: {[(root, files) for root, dirs, files in os.walk(chromedriver_dir)]}")
-                raise RuntimeError(f"Invalid ChromeDriver binary: {chromedriver_path}")
-
-            logger.info(f"Using ChromeDriver binary at: {chromedriver_path}")
-            service = Service(chromedriver_path)
-            driver = webdriver.Chrome(service=service, options=chrome_options)
-            logger.info("✅ Chrome WebDriver created successfully.")
-        except Exception as e:
-            logger.error(f"❌ Failed to create Chrome WebDriver: {e}")
-            return None
         
         # Set page load timeout
         driver.set_page_load_timeout(config.PAGE_LOAD_TIMEOUT)
