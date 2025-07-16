@@ -4,6 +4,7 @@ Loads settings from environment variables and provides defaults
 """
 
 import os
+import json
 import logging
 from pathlib import Path
 from dotenv import load_dotenv
