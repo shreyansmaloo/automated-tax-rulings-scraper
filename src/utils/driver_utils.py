@@ -37,7 +37,13 @@ def setup_driver(config):
         
         # Add user data directory to use your Chrome profile
         chrome_profile_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "chrome_profile")
+        os.makedirs(chrome_profile_path, exist_ok=True)  # Ensure directory exists
         chrome_options.add_argument(f"--user-data-dir={chrome_profile_path}")
+
+        # Add headless mode for Docker/CI environments
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
         
         # Set Chrome binary path from config
         if os.path.exists(config.CHROME_BINARY_PATH):
