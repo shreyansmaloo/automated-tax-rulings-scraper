@@ -26,18 +26,16 @@ class SheetsUploader:
     def authenticate(self):
         """Authenticate with Google Sheets API using service account"""
         try:
-            credentials_path = Path(self.config.SERVICE_ACCOUNT_FILE)
-            
-            if not credentials_path.exists():
-                logger.error(f"Service account file not found: {credentials_path}")
+            if not self.config.SERVICE_ACCOUNT_DETAILS:
+                logger.error("Service account details not found")
                 return False
             
             # Define the scope
             SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
             
             # Authenticate
-            self.credentials = service_account.Credentials.from_service_account_file(
-                str(credentials_path), scopes=SCOPES
+            self.credentials = service_account.Credentials.from_service_account_info(
+                self.config.SERVICE_ACCOUNT_DETAILS, scopes=SCOPES
             )
             
             # Build the service
