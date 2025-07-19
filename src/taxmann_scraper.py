@@ -1,6 +1,6 @@
 """Taxmann.com scraper module for automated tax rulings
 
-Scrapes GST updates, Company & SEBI Laws, and FEMA & Banking updates from Taxmann.com
+Scrapes GST updates, Direct Tax updates, Company & SEBI Laws, and FEMA & Banking updates from Taxmann.com
 """
 
 import logging
@@ -45,7 +45,7 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
         logger.info("✅ Successfully navigated to Archives page")
         return True
 
-    def scrape_yesterday_archives_updates(self, taxmann_gst_data, taxmann_direct_tax_data, taxmann_fema_banking_data):
+    def scrape_yesterday_archives_updates(self, taxmann_gst_data, taxmann_direct_tax_data, taxmann_company_sebi_data, taxmann_fema_banking_data):
         try:
             if not self.navigate_to_archives():
                 logger.error("Failed to navigate to Archives page, aborting scraping")
@@ -104,11 +104,19 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
                                 "Date": yesterday
                             })
 
-                        # Income Tax / Direct Tax Laws articles
+                        # Direct Tax articles
                         elif "/research/direct-tax-laws" in href:
                             combined_updates.append({
                                 "URL": href,
                                 "Category": "Direct Tax",
+                                "Date": yesterday
+                            })
+
+                        # Company & SEBI articles
+                        elif "/research/company-and-sebi" in href:
+                            combined_updates.append({
+                                "URL": href,
+                                "Category": "Company & SEBI",
                                 "Date": yesterday
                             })
 
@@ -235,18 +243,15 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
                     citation_text = None
                     if sub_category.strip().lower() == "case laws":
                         try:
-                            # Only for case laws: look for the citation button and get its value
-                            citation_btn = self.driver.find_element(By.CSS_SELECTOR, ".copy-citation-action")
-                            # The citation text is usually in a data-clipboard-text attribute or as a value
-                            # Click the citation button to copy citation to clipboard, then read from clipboard
-
-                            citation_btn.click()
-                            citation_text = pyperclip.paste()
+                            court = self.driver.find_element(By.XPATH, "/html/body/app-root/div[1]/div/div/div[3]/div/app-top-story/div/div/div/div[1]/div/div/section/div/div/div[2]/app-preview-document/div[1]/div/div[2]/app-html-viewer/div[3]/div/div/div[2]/div[1]/div[1]").text.strip()
+                            party1 = self.driver.find_element(By.XPATH, "/html/body/app-root/div[1]/div/div/div[3]/div/app-top-story/div/div/div/div[1]/div/div/section/div/div/div[2]/app-preview-document/div[1]/div/div[2]/app-html-viewer/div[3]/div/div/div[2]/div[1]/div[2]").text.strip()
+                            party2 = self.driver.find_element(By.XPATH, "/html/body/app-root/div[1]/div/div/div[3]/div/app-top-story/div/div/div/div[1]/div/div/section/div/div/div[2]/app-preview-document/div[1]/div/div[2]/app-html-viewer/div[3]/div/div/div[2]/div[1]/div[4]").text.strip()
+                            case_reference = self.driver.find_element(By.ID, "db_citation").text.strip()
+                            citation_text = f"{party1} vs. {party2}, {court}, {case_reference}"
                             logger.info(f"Citation text: {citation_text}")
                         except Exception:
                             citation_text = None
 
-                    # Instead of updating a generic update_date, update the specific GST, FEMA, or Direct Tax data lists
                     if category.strip().upper() == "GST":
                         taxmann_gst_data.append({
                             "Title": title,
@@ -258,9 +263,21 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
                             "Source": "Taxmann.com",
                             "URL": url
                         })
-                        
-                    elif category.strip().upper() in ["FEMA & BANKING", "FEMA"]:
-                        taxmann_fema_banking_data.append({
+
+                    elif category.strip().upper() == "DIRECT TAX":
+                        taxmann_direct_tax_data.append({
+                            "Title": title,
+                            "Category": category,
+                            "Sub-Category": sub_category,
+                            "Summary": summary,
+                            "Citation": citation_text,
+                            "Date": date_val,
+                            "Source": "Taxmann.com",
+                            "URL": url
+                        })
+                    
+                    elif category.strip().upper() in ["COMPANY & SEBI"]:
+                        taxmann_company_sebi_data.append({
                             "Title": title,
                             "Category": category,
                             "Sub-Category": sub_category,
@@ -271,8 +288,8 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
                             "URL": url
                         })
 
-                    elif category.strip().upper() in ["DIRECT TAX", "INCOME TAX"]:
-                        taxmann_direct_tax_data.append({
+                    elif category.strip().upper() in ["FEMA & BANKING", "FEMA"]:
+                        taxmann_fema_banking_data.append({
                             "Title": title,
                             "Category": category,
                             "Sub-Category": sub_category,

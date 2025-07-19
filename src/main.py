@@ -58,40 +58,48 @@ def main():
         logger.info("📡 Starting Taxsutra.com scraping...")
 
         # Login to taxsutra
+        logger.info("📡 Logging in to Taxsutra.com...")
         login_to_taxsutra(driver, config)
             
         # Initialize Taxsutra Data Sets
-        logger.info("📡 Initializing Taxsutra scrapers...")
+        logger.info("📡 Initializing Taxsutra Data Sets...")
         taxsutra_rulings_data = []
         taxsutra_expert_corner_data = []
         taxsutra_litigation_tracker_data = []
 
         # Initialize Taxsutra scrappers
+        logger.info("📡 Initializing Taxsutra rulings scraper...")
         taxsutra_rulings_scraper = RulingsScraper(driver)
         taxsutra_rulings_data = taxsutra_rulings_scraper.scrape_yesterday_rulings(taxsutra_rulings_scraper.target_url)
 
+        logger.info("📡 Initializing Taxsutra expert corner scraper...")
         taxsutra_expert_corner_scraper = ExpertCornerScraper(driver)
         taxsutra_expert_corner_data = taxsutra_expert_corner_scraper.scrape_yesterday_expert_corner(taxsutra_expert_corner_scraper.target_url)
 
+        logger.info("📡 Initializing Taxsutra litigation tracker scraper...")
         taxsutra_litigation_tracker_scraper = LitigationTrackerScraper(driver)
         taxsutra_litigation_tracker_data = taxsutra_litigation_tracker_scraper.scrape_yesterday_litigation_tracker(taxsutra_litigation_tracker_scraper.target_url)
         
         # logger.info("📡 Starting Taxmann.com scraping...")
         login_to_taxmann(driver, config)
 
-        # Initialize Taxsutra Data Sets
+        # Initialize Taxmann Data Sets
+        logger.info("📡 Initializing Taxmann Data Sets...")
         taxmann_gst_data = []
         taxmann_direct_tax_data = []
+        taxmann_company_sebi_data = []
         taxmann_fema_banking_data = []
 
         # Initialize Taxmann scrapers      
+        logger.info("📡 Initializing Taxmann scrapers...")
         taxmann_scraper = TaxmannArchivesScraper(driver)
         
         # Scrape Taxmann data
         logger.info("📡 Starting Taxmann.com scraping...")
-        taxmann_scraper.scrape_yesterday_archives_updates(taxmann_gst_data, taxmann_direct_tax_data, taxmann_fema_banking_data)
+        taxmann_scraper.scrape_yesterday_archives_updates(taxmann_gst_data, taxmann_direct_tax_data, taxmann_company_sebi_data, taxmann_fema_banking_data)
         
         # Combine all data for backup
+        logger.info("📡 Combining all data for backup...")
         all_data = {
             "taxsutra": {
                 "rulings": taxsutra_rulings_data,
@@ -101,11 +109,13 @@ def main():
             "taxmann": {
                 "gst": taxmann_gst_data,
                 "direct_tax": taxmann_direct_tax_data,
+                "company_sebi": taxmann_company_sebi_data,
                 "fema_banking": taxmann_fema_banking_data
             }
         }
         
         # Save JSON backup
+        logger.info("📡 Saving JSON backup...")
         json_file = save_json_backup(all_data)
         
         # Upload to Google Sheets
@@ -116,11 +126,11 @@ def main():
         if taxsutra_rulings_data:
             logger.info(f"✅ Successfully scraped {len(taxsutra_rulings_data)} rulings")
             if uploader.upload_data(taxsutra_rulings_data):
-                logger.info("✅ Successfully uploaded to Google Sheets")
+                logger.info("✅ Successfully uploaded tax sutra rulings to Google Sheets")
                 logger.info(f"🔗 View at: {uploader.get_sheet_url()}")
                 any_uploaded = True
             else:
-                logger.error("❌ Failed to upload to Google Sheets")
+                logger.error("❌ Failed to upload tax sutra rulings to Google Sheets")
                 logger.info(f"💾 Data saved locally: {json_file}") 
         else:
             logger.warning(f"⚠️ No rulings found for {time_period}")
@@ -140,12 +150,12 @@ def main():
         if taxsutra_litigation_tracker_data:
             logger.info(f"Expert Corner Data: {taxsutra_litigation_tracker_data}")
             if uploader.upload_litigation_tracker_data(taxsutra_litigation_tracker_data):
-                logger.info("✅ Successfully uploaded expert corner data to Google Sheets")
+                logger.info("✅ Successfully uploaded litigation tracker data to Google Sheets")
                 any_uploaded = True
             else:
-                logger.error("❌ Failed to upload expert corner data to Google Sheets")
+                logger.error("❌ Failed to upload litigation tracker data to Google Sheets")
         else:
-            logger.warning(f"⚠️ No export articles found for {time_period}")
+            logger.warning(f"⚠️ No litigation tracker articles found for {time_period}")
             # return 1
         
         # Upload Taxmann data to Google Sheets
@@ -158,10 +168,20 @@ def main():
                 logger.error("❌ Failed to upload Taxmann GST data to Google Sheets")
         else:
             logger.warning(f"⚠️ No Taxmann GST updates found for {time_period}")
-        
-        if taxmann_direct_tax_data:
-            logger.info(f"✅ Successfully scraped {len(taxmann_direct_tax_data)} Taxmann Company & SEBI updates")
+
+        if taxmann_direct_tax_data:    
+            logger.info(f"✅ Successfully scraped {len(taxmann_direct_tax_data)} Taxmann Direct Tax updates")
             if uploader.upload_taxmann_data(taxmann_direct_tax_data):
+                logger.info("✅ Successfully uploaded Taxmann Direct Tax data to Google Sheets")
+                any_uploaded = True
+            else:
+                logger.error("❌ Failed to upload Taxmann Direct Tax data to Google Sheets")
+        else:
+            logger.warning(f"⚠️ No Taxmann Direct Tax updates found for {time_period}")
+        
+        if taxmann_company_sebi_data:
+            logger.info(f"✅ Successfully scraped {len(taxmann_company_sebi_data)} Taxmann Company & SEBI updates")
+            if uploader.upload_taxmann_data(taxmann_company_sebi_data):
                 logger.info("✅ Successfully uploaded Taxmann Company & SEBI data to Google Sheets")
                 any_uploaded = True
             else:
@@ -192,7 +212,8 @@ def main():
         logger.info(f"📋 Taxsutra Expert Corner processed: {len(taxsutra_expert_corner_data)}")
         logger.info(f"📋 Taxsutra Litigation Tracker processed: {len(taxsutra_litigation_tracker_data)}")
         logger.info(f"📋 Taxmann GST updates processed: {len(taxmann_gst_data)}")
-        logger.info(f"📋 Taxmann Company & SEBI updates processed: {len(taxmann_direct_tax_data)}")
+        logger.info(f"📋 Taxmann Direct Tax updates processed: {len(taxmann_direct_tax_data)}")
+        logger.info(f"📋 Taxmann Company & SEBI updates processed: {len(taxmann_company_sebi_data)}")
         logger.info(f"📋 Taxmann FEMA & Banking updates processed: {len(taxmann_fema_banking_data)}")
         logger.info(f"⏱️ Total time: {duration}")
         logger.info(f"📊 Google Sheets updated: {uploader.get_sheet_url()}")
