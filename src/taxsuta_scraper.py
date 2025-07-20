@@ -1,6 +1,7 @@
 import logging
 import time
 import re
+import os
 import requests
 from pathlib import Path
 from selenium.webdriver.common.by import By
@@ -29,69 +30,6 @@ class RulingsScraper(TaxSutraBaseScraper):
         super().__init__(driver)
         self.target_url = "https://www.taxsutra.com/dt/rulings"
     
-    def download_pdf(self, pdf_url, ruling_title, ruling_data):
-        """Download PDF file for a ruling"""
-        try:
-            # Create a safe filename from the ruling title or citation
-            citation = ruling_data.get("Citation", "")
-            if citation and citation != "N/A":
-                # Use citation for filename if available
-                safe_filename = re.sub(r'[^\w\-_\.]', '_', citation)
-            else:
-                # Use title for filename
-                safe_filename = re.sub(r'[^\w\-_\.]', '_', ruling_title[:50])
-            
-            # Ensure filename ends with .pdf
-            if not safe_filename.endswith('.pdf'):
-                safe_filename += '.pdf'
-            
-            # Create downloads directory if it doesn't exist
-            downloads_dir = Path(config.DOWNLOAD_DIR)
-            downloads_dir.mkdir(exist_ok=True)
-            
-            # Full path for the PDF file
-            pdf_path = downloads_dir / safe_filename
-            
-            # Skip if file already exists
-            if pdf_path.exists():
-                logger.info(f"📄 PDF already exists: {safe_filename}")
-                return str(pdf_path)
-            
-            # Download the PDF
-            logger.info(f"⬇️ Downloading PDF: {safe_filename}")
-            
-            # Use the same session/cookies as the browser for authentication
-            cookies = {}
-            for cookie in self.driver.get_cookies():
-                cookies[cookie['name']] = cookie['value']
-            
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-            
-            response = requests.get(pdf_url, cookies=cookies, headers=headers, stream=True, timeout=30)
-            response.raise_for_status()
-            
-            # Check if the response contains PDF content
-            content_type = response.headers.get('content-type', '').lower()
-            if 'pdf' not in content_type and 'application/octet-stream' not in content_type:
-                logger.warning(f"⚠️ URL does not appear to be a PDF: {pdf_url}")
-                return None
-            
-            # Save the PDF file
-            with open(pdf_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-            
-            file_size = pdf_path.stat().st_size
-            logger.info(f"✅ PDF downloaded successfully: {safe_filename} ({file_size} bytes)")
-            return str(pdf_path)
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to download PDF from {pdf_url}: {e}")
-            return None
-
     def extract_judicial_info_from_html(self, case_law_element):
         """
         Extract judicial information from case law information text.
@@ -344,60 +282,37 @@ class RulingsScraper(TaxSutraBaseScraper):
         # Extract and download PDF if available
         data["PDF Path"] = None
         try:
-            # Look for PDF download links with more comprehensive selectors
-            pdf_selectors = [
-                "a[href$='.pdf']",
-                "a[href*='pdf']",
-                "a[href*='download']",
-                "a[href*='judgment']",
-                "a[href*='ruling']",
-                ".download-link",
-                ".pdf-link",
-                "a[title*='PDF']",
-                "a[title*='Download']",
-                "a[title*='Judgment']",
-                "a[title*='Ruling']",
-                "a[class*='download']",
-                "a[class*='pdf']"
-            ]
+            download_element = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.XPATH, "//a[contains(@href, '/download/attachment-conclusion/')]"))
+            )
             
-            pdf_link = None
-            for selector in pdf_selectors:
-                try:
-                    pdf_elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    for element in pdf_elements:
-                        href = element.get_attribute("href")
-                        if href and ('.pdf' in href.lower() or 'download' in href.lower() or 'judgment' in href.lower()):
-                            pdf_link = href
-                            logger.info(f"📄 Found PDF link with selector '{selector}': {pdf_link}")
-                            break
-                    if pdf_link:
-                        break
-                except:
-                    continue
+            download_url = download_element.get_attribute('href')
+            print(f"Download URL: {download_url}")
             
-            # If no direct PDF link found, look for "Download Judgment" text links
-            if not pdf_link:
-                try:
-                    download_elements = self.driver.find_elements(By.XPATH, "//a[contains(text(), 'Download') or contains(text(), 'PDF') or contains(text(), 'Judgment')]")
-                    for element in download_elements:
-                        href = element.get_attribute("href")
-                        if href:
-                            pdf_link = href
-                            logger.info(f"📄 Found PDF link by text search: {pdf_link}")
-                            break
-                except:
-                    pass
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            filename = f"rulings_{timestamp}.pdf"
+
+            selenium_cookies = self.driver.get_cookies()
+            requests_cookies = {}
+            for cookie in selenium_cookies:
+                requests_cookies[cookie['name']] = cookie['value']
             
-            if pdf_link:
-                pdf_path = self.download_pdf(pdf_link, data.get("Title", "ruling"), data)
-                if pdf_path:
-                    data["PDF Path"] = pdf_path
-                    logger.info(f"✅ PDF downloaded: {pdf_path}")
-                else:
-                    logger.warning("❌ Failed to download PDF")
+            # Download using requests
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            
+            response = requests.get(download_url, cookies=requests_cookies, headers=headers)
+            downloads_dir = Path(config.DOWNLOAD_DIR)
+
+            if response.status_code == 200:
+                file_path = os.path.join(downloads_dir, filename)              
+                with open(file_path, 'wb') as f:
+                    f.write(response.content)
+                
+                print(f"File downloaded successfully: {file_path}")
             else:
-                logger.debug("No PDF download link found on this page")
+                print(f"Failed to download. Status code: {response.status_code}")
                 
         except Exception as e:
             logger.warning(f"Error while looking for PDF: {e}")
@@ -456,14 +371,6 @@ class RulingsScraper(TaxSutraBaseScraper):
         time.sleep(self.config.PAGE_LOAD_WAIT)
         try:
             target_dates = self.get_target_dates()
-            if not target_dates:
-                logger.info("Today is a weekend, not generating any data.")
-                return []
-            
-            if len(target_dates) > 1:
-                logger.info(f"Today is Monday, looking for weekend rulings published on: {', '.join(target_dates)}")
-            else:
-                logger.info(f"Looking for rulings published on: {target_dates[0]}")
             
             all_rulings = []
             page_count = 0

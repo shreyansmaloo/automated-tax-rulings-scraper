@@ -163,22 +163,7 @@ class TaxSutraBaseScraper:
         Returns:
             list: List of target date strings
         """
-        today = date.today()
-        
-        # If today is Saturday or Sunday, return empty list
-        if today.weekday() in [5, 6]:  # 5=Saturday, 6=Sunday
-            logger.info("Today is Saturday or Sunday, not generating any data.")
-            return []
-
-        # If today is Monday, return weekend dates
-        if today.weekday() == 0:  # Monday
-            target_dates = self.get_weekend_dates()
-            logger.info(f"Today is Monday, looking for weekend data published on: {', '.join(target_dates)}")
-        else:
-            # Otherwise return yesterday's date
-            target_dates = [self.get_yesterday_string()]
-            logger.info(f"Looking for data published on: {target_dates[0]}")
-        
+        target_dates = [self.get_yesterday_string()]
         return target_dates
     
     def cleanup(self):
