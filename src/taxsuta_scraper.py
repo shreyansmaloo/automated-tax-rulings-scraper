@@ -290,7 +290,7 @@ class RulingsScraper(TaxSutraBaseScraper):
             print(f"Download URL: {download_url}")
             
             timestamp = time.strftime("%Y%m%d_%H%M%S")
-            filename = f"rulings_{timestamp}.pdf"
+            filename = f"taxsutra_rulings_{timestamp}.pdf"
 
             selenium_cookies = self.driver.get_cookies()
             requests_cookies = {}

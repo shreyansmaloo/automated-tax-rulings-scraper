@@ -5,6 +5,7 @@ Handles authentication, sheet creation, and data upload
 
 import logging
 import re
+from src.utils.date_utils import extract_date
 from datetime import datetime
 from pathlib import Path
 from google.oauth2 import service_account
@@ -198,6 +199,11 @@ class SheetsUploader:
             date_value = ruling.get("Ruling Date", "N/A")
             if date_value == "N/A":
                 date_value = ruling.get("Published Date", "N/A")
+
+            # Format date to 'DD-MMM-YYYY' if possible
+            parsed_date = extract_date(date_value)
+            if parsed_date:
+                date_value = parsed_date.strftime('%d-%b-%Y')
             
             # Category is always "Direct Tax"
             category = "Direct Tax"
@@ -967,7 +973,12 @@ class SheetsUploader:
         # Add data rows
         for update in taxmann_data:
             # Extract date
-            date_value = update.get("Date", "N/A")
+            date_value_unformatted = update.get("Date", "N/A")
+            
+            # Format date to 'DD-MMM-YYYY' if possible
+            parsed_date = extract_date(date_value_unformatted)
+            if parsed_date:
+                date_value = parsed_date.strftime('%d-%b-%Y')
             
             # Category (GST, Company & SEBI, or FEMA & Banking)
             category = update.get("Category", "N/A")
