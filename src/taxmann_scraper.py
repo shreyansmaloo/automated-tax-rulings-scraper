@@ -9,8 +9,9 @@ from datetime import datetime, timedelta
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import pyperclip
-
+import os
+import glob
+from pathlib import Path    
 from config.settings import config
 from src.utils.base_scraper import TaxSutraBaseScraper
 
@@ -104,7 +105,7 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
                                 "Date": yesterday
                             })
 
-                        # Direct Tax articles
+                        # Income Tax / Direct Tax Laws articles
                         elif "/research/direct-tax-laws" in href:
                             combined_updates.append({
                                 "URL": href,
@@ -251,6 +252,41 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
                             logger.info(f"Citation text: {citation_text}")
                         except Exception:
                             citation_text = None
+
+                        # Extract and download PDF if available
+                        try:
+                            self.driver.find_element(By.XPATH, "//img[contains(@src, 'download.svg')]").click()
+                            download_element = WebDriverWait(self.driver, 10).until(
+                                EC.presence_of_element_located((By.XPATH, "//a[@class='btn btn-default justify-content-start' and contains(text(), 'PDF')]"))
+                            )
+                            download_element.click()
+                            time.sleep(5)
+                            
+                            # Rename the downloaded file  
+                            downloads_dir = Path("downloads")
+                            
+                            # Find the most recently downloaded PDF file
+                            pdf_files = list(downloads_dir.glob("*.pdf"))
+                            if pdf_files:
+                                # Sort by modification time to get the most recent
+                                latest_pdf = max(pdf_files, key=lambda x: x.stat().st_mtime)
+                                
+                                # Generate new filename with timestamp
+                                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                                new_filename = f"taxmann_rulings_{timestamp}.pdf"
+                                new_filepath = downloads_dir / new_filename
+                                
+                                # Rename the file
+                                try:
+                                    latest_pdf.rename(new_filepath)
+                                    logger.info(f"✅ Renamed downloaded PDF to: {new_filename}")
+                                except Exception as rename_error:
+                                    logger.warning(f"Failed to rename PDF file: {rename_error}")
+                            else:
+                                logger.warning("No PDF files found in downloads directory")
+                                
+                        except Exception as e:
+                            logger.warning(f"Error while looking for PDF: {e}")
 
                     if category.strip().upper() == "GST":
                         taxmann_gst_data.append({

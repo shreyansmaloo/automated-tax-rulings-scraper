@@ -40,6 +40,13 @@ def setup_driver(config):
         os.makedirs(chrome_profile_path, exist_ok=True)  # Ensure directory exists
         chrome_options.add_argument(f"--user-data-dir={chrome_profile_path}")
 
+        prefs = {
+            "download.default_directory": os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "downloads"),
+            "download.prompt_for_download": False,
+            "download.directory_upgrade": True
+        }
+        chrome_options.add_experimental_option("prefs", prefs)
+        
         # Add headless mode for Docker/CI environments
         chrome_options.add_argument('--headless')
         chrome_options.add_argument('--no-sandbox')
