@@ -18,6 +18,7 @@ from config.settings import config, logger
 from src.taxsuta_scraper import RulingsScraper, ExpertCornerScraper, LitigationTrackerScraper
 from src.taxmann_scraper import TaxmannArchivesScraper
 from src.sheets_uploader import SheetsUploader
+from src.email_sender import EmailSender
 from src.utils.driver_utils import setup_driver, login_to_taxsutra, login_to_taxmann
 
 def save_json_backup(rulings_data):
@@ -218,6 +219,17 @@ def main():
         logger.info(f"⏱️ Total time: {duration}")
         logger.info(f"📊 Google Sheets updated: {uploader.get_sheet_url()}")
         logger.info(f"💾 JSON backup: {json_file}")
+        
+        # Send email notification
+        logger.info("📧 Sending daily update email...")
+        try:
+            email_sender = EmailSender()
+            if email_sender.send_email(all_data):
+                logger.info("✅ Daily update email sent successfully")
+            else:
+                logger.warning("⚠️ Failed to send daily update email")
+        except Exception as e:
+            logger.error(f"❌ Error sending email: {e}")
         
         return 0
         

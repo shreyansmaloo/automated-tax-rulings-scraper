@@ -65,6 +65,21 @@ class Config:
     # Timezone
     TIMEZONE = os.getenv("TIMEZONE", "Asia/Kolkata")
     
+    # Email Configuration
+    EMAIL_SMTP_SERVER = os.getenv("EMAIL_SMTP_SERVER", "smtp.gmail.com")
+    EMAIL_SMTP_PORT = int(os.getenv("EMAIL_SMTP_PORT", "465"))
+    EMAIL_SENDER = os.getenv("EMAIL_SENDER", "")
+    EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")
+    EMAIL_RECIPIENT = os.getenv("EMAIL_RECIPIENT", "admin@m2k.co.in")
+    
+    @classmethod
+    def get_email_recipients(cls):
+        """Get list of email recipients from environment variable"""
+        recipients_str = os.getenv("EMAIL_RECIPIENT", "admin@m2k.co.in")
+        # Split by comma and clean up whitespace
+        recipients = [email.strip() for email in recipients_str.split(",")]
+        return recipients
+    
     # Validation
     @classmethod
     def validate(cls):
@@ -88,6 +103,10 @@ class Config:
             
         if not cls.SERVICE_ACCOUNT_DETAILS:
             errors.append(f"Service account details not found: {cls.SERVICE_ACCOUNT_DETAILS}")
+            
+        # Email validation (optional - only if email sender is configured)
+        if cls.EMAIL_SENDER and not cls.EMAIL_PASSWORD:
+            errors.append("EMAIL_PASSWORD is required when EMAIL_SENDER is configured")
             
         if errors:
             raise ValueError("Configuration errors:\n" + "\n".join(f"- {error}" for error in errors))

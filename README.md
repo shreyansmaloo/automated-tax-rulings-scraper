@@ -11,6 +11,7 @@ A high-performance, automated web scraper that extracts tax rulings from Taxsutr
 - ⚡ **Performance Optimized**: 40-60% faster execution with optimized Chrome settings
 - 🤖 **Fully Automated**: Set-and-forget cron job execution
 - 📊 **Google Sheets Integration**: Automatic data upload with formatting
+- 📧 **Email Notifications**: Daily update emails with categorized sections
 - 🔐 **Service Account Auth**: No manual login required for automation
 - 📝 **Comprehensive Logging**: Full activity tracking and error reporting
 - 🐳 **Server Ready**: Headless operation for VPS/server deployment
@@ -109,6 +110,13 @@ TAXSUTRA_PASSWORD=your_taxsutra_password
 TAXMANN_EMAIL=your_taxmann_email
 TAXMANN_PASSWORD=your_taxmann_password
 
+# Email Configuration (Optional - for daily update emails)
+EMAIL_SMTP_SERVER=smtp.gmail.com
+EMAIL_SMTP_PORT=465
+EMAIL_SENDER=your_email@gmail.com
+EMAIL_PASSWORD=your_app_password_here
+EMAIL_RECIPIENT=admin@m2k.co.in
+
 # Logging Configuration
 LOG_LEVEL=INFO
 LOG_FILE=logs/scraper.log
@@ -125,6 +133,27 @@ CHROME_BINARY_PATH=/usr/bin/google-chrome
 4. Create Service Account credentials
 5. Download JSON key file
 6. Share your Google Sheet with the service account email
+
+### Email Setup (Optional)
+The scraper can send daily update emails with M2K branding and comprehensive data from `rulings.json`:
+
+**Email Features:**
+- **M2K Brand Colors**: Orange (`#ea580c`) and Dark Blue (`#1e293b`)
+- **Three Sections**: Articles, Taxsutra Updates, Taxmann Updates
+- **Rich Content**: Titles, summaries, citations, dates, categories
+- **Statistics Dashboard**: Summary counts for each section
+- **Professional Design**: Modern layout with hover effects
+
+**Data Sources:**
+- Uses `downloads/rulings.json` for comprehensive data
+- Automatically categorizes content based on URLs and metadata
+- Includes all available information: summaries, citations, case names, judicial levels
+
+To enable email notifications:
+1. For Gmail: Use an App Password (not your regular password)
+2. Enable 2-factor authentication on your Gmail account
+3. Generate an App Password: Google Account → Security → App Passwords
+4. Set the environment variables in your `.env` file
 
 ## 🚀 Deployment Options
 
