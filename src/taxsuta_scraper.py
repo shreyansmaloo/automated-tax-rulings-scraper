@@ -311,6 +311,7 @@ class RulingsScraper(TaxSutraBaseScraper):
                     f.write(response.content)
                 
                 print(f"File downloaded successfully: {file_path}")
+                data["PDF Path"] = filename  # Save the filename for the Excel link
             else:
                 print(f"Failed to download. Status code: {response.status_code}")
                 

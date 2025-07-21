@@ -52,6 +52,9 @@ class Config:
     HEADLESS_MODE = os.getenv("HEADLESS_MODE", "false").lower() == "true"
     CHROME_BINARY_PATH = os.getenv("CHROME_BINARY_PATH", "/usr/bin/google-chrome")
     DOWNLOAD_DIR = os.getenv("DOWNLOAD_DIR", "downloads")
+
+    # File Server Configuration
+    FILE_SERVER_URL = os.getenv("FILE_SERVER_URL", "")
     
     # Timing Configuration (in seconds)
     WEBDRIVER_TIMEOUT = int(os.getenv("WEBDRIVER_TIMEOUT", "8"))

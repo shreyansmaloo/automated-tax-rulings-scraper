@@ -280,13 +280,18 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
                                 try:
                                     latest_pdf.rename(new_filepath)
                                     logger.info(f"✅ Renamed downloaded PDF to: {new_filename}")
+                                    # Save the filename for the Excel link
+                                    pdf_filename = new_filename
                                 except Exception as rename_error:
                                     logger.warning(f"Failed to rename PDF file: {rename_error}")
+                                    pdf_filename = None
                             else:
                                 logger.warning("No PDF files found in downloads directory")
+                                pdf_filename = None
                                 
                         except Exception as e:
                             logger.warning(f"Error while looking for PDF: {e}")
+                            pdf_filename = None
 
                     if category.strip().upper() == "GST":
                         taxmann_gst_data.append({
@@ -297,7 +302,8 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
                             "Citation": citation_text,
                             "Date": date_val,
                             "Source": "Taxmann.com",
-                            "URL": url
+                            "URL": url,
+                            "PDF Path": pdf_filename
                         })
 
                     elif category.strip().upper() == "DIRECT TAX":
@@ -309,7 +315,8 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
                             "Citation": citation_text,
                             "Date": date_val,
                             "Source": "Taxmann.com",
-                            "URL": url
+                            "URL": url,
+                            "PDF Path": pdf_filename
                         })
                     
                     elif category.strip().upper() in ["COMPANY & SEBI"]:
@@ -321,7 +328,8 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
                             "Citation": citation_text,
                             "Date": date_val,
                             "Source": "Taxmann.com",
-                            "URL": url
+                            "URL": url,
+                            "PDF Path": pdf_filename
                         })
 
                     elif category.strip().upper() in ["FEMA & BANKING", "FEMA"]:
@@ -333,7 +341,8 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
                             "Citation": citation_text,
                             "Date": date_val,
                             "Source": "Taxmann.com",
-                            "URL": url
+                            "URL": url,
+                            "PDF Path": pdf_filename
                         })
 
                 except Exception as e:

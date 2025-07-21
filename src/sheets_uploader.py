@@ -55,7 +55,8 @@ class SheetsUploader:
             "Date",
             "Category", 
             "Sub-Category",
-            "Summary"
+            "Summary",
+            "File"
         ]
     
     def extract_case_reference(self, ruling_data):
@@ -237,11 +238,22 @@ class SheetsUploader:
             summary_line = f"{case_name} - {judicial_level_location} - {case_reference}:{court_abbr}"
             summary = f"{title}\n\n{conclusion}\n\n{summary_line}"
             
+            # Create file link if PDF path exists
+            file_link = ""
+            pdf_path = ruling.get("PDF Path")
+            if pdf_path and pdf_path != "N/A" and pdf_path is not None:
+                # Extract filename from the path
+                import os
+                filename = os.path.basename(pdf_path)
+                if filename:
+                    file_link = f"{self.config.FILE_SERVER_URL}{filename}"
+            
             row = [
                 date_value,
                 category,
                 sub_category,
-                summary
+                summary,
+                file_link
             ]
             data.append(row)
         
@@ -405,7 +417,7 @@ class SheetsUploader:
                             "sheetId": sheet_id,
                             "dimension": "COLUMNS",
                             "startIndex": 0,
-                            "endIndex": 4
+                            "endIndex": 5
                         }
                     }
                 },
@@ -436,6 +448,30 @@ class SheetsUploader:
                             }
                         },
                         "fields": "userEnteredFormat.wrapStrategy"
+                    }
+                },
+                # Format File column as links (blue text, underlined)
+                {
+                    "repeatCell": {
+                        "range": {
+                            "sheetId": sheet_id,
+                            "startRowIndex": 1,
+                            "startColumnIndex": 4,
+                            "endColumnIndex": 5
+                        },
+                        "cell": {
+                            "userEnteredFormat": {
+                                "textFormat": {
+                                    "foregroundColor": {
+                                        "red": 0.0,
+                                        "green": 0.0,
+                                        "blue": 1.0
+                                    },
+                                    "underline": True
+                                }
+                            }
+                        },
+                        "fields": "userEnteredFormat.textFormat"
                     }
                 }
             ]
@@ -803,14 +839,15 @@ class SheetsUploader:
                     logger.error("No valid sheet to upload expert corner data.")
                     return False
             # Prepare data
-            headers = ["Date", "Category", "Sub-Category", "Summary"]
+            headers = ["Date", "Category", "Sub-Category", "Summary", "File"]
             data = [headers]
             for article in taxsutra_expert_corner_data:
                 row = [
                     article.get("date", "N/A"),
                     "Direct tax",
                     "Article",
-                    article.get("title", "")
+                    article.get("title", ""),
+                    ""  # No PDF files for expert corner articles
                 ]
                 data.append(row)
             if clear_first:
@@ -850,7 +887,7 @@ class SheetsUploader:
                 if not sheet_name:
                     logger.error("No valid sheet to upload litigation tracker data.")
                     return False
-            headers = ["Date", "Category", "Sub-Category", "Summary"]
+            headers = ["Date", "Category", "Sub-Category", "Summary", "File"]
             data = [headers]
             for entry in taxsutra_litigation_data:
                 # Ensure summary is present and not just title
@@ -861,7 +898,8 @@ class SheetsUploader:
                     entry.get("date", "N/A"),
                     "Direct Tax",
                     "Litigation",
-                    summary
+                    summary,
+                    ""  # No PDF files for litigation tracker articles
                 ]
                 print(f"Uploading row: {row}")  # Debug print
                 data.append(row)
@@ -1000,11 +1038,22 @@ class SheetsUploader:
             else:
                 summary = f"{title}\n\n{content}"
             
+            # Create file link if PDF path exists
+            file_link = ""
+            pdf_path = update.get("PDF Path")
+            if pdf_path and pdf_path != "N/A" and pdf_path is not None:
+                # Extract filename from the path
+                import os
+                filename = os.path.basename(pdf_path)
+                if filename:
+                    file_link = f"{self.config.FILE_SERVER_URL}{filename}"
+            
             row = [
                 date_value,
                 category,
                 sub_category,
-                summary
+                summary,
+                file_link
             ]
             data.append(row)
         
