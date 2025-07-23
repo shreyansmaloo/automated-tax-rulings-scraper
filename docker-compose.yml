@@ -1,0 +1,38 @@
+services:
+  tax-scraper:
+    image: shreyansmaloo/m2k:latest
+    platform: linux/amd64
+    pull_policy: always
+    container_name: tax-scraper-m2k
+    restart: unless-stopped
+    volumes:
+      # Mount the web directory to the container's downloads folder
+      - /var/www/html/data_scraper/TS_TM/rulings:/app/downloads
+      # Mount logs directory for persistence
+      - ./logs:/app/logs
+    env_file:
+      - .env
+    environment:
+      # Logging Configuration
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FILE=logs/scraper.log
+      - ERROR_LOG_FILE=logs/error.log
+      
+      # Server Configuration
+      - HEADLESS_MODE=${HEADLESS_MODE:-true}
+      - CHROME_BINARY_PATH=/usr/bin/chromium
+      - DOWNLOAD_DIR=/app/downloads
+      
+      # Timing Configuration
+      - WEBDRIVER_TIMEOUT=${WEBDRIVER_TIMEOUT:-8}
+      - PAGE_LOAD_WAIT=${PAGE_LOAD_WAIT:-1.5}
+      - RETRY_ATTEMPTS=${RETRY_ATTEMPTS:-3}
+      
+      # Timezone
+      - TIMEZONE=${TIMEZONE:-Asia/Kolkata}
+    networks:
+      - scraper-network
+
+networks:
+  scraper-network:
+    driver: bridge 
