@@ -169,8 +169,12 @@ def login_to_taxmann(driver, config):
         logger.info("Logging in to Taxmann.com...")
         
         # Navigate to login page
-        driver.get("https://www.taxmann.com")
-        time.sleep(config.PAGE_LOAD_WAIT)
+        try:
+            driver.get("https://www.taxmann.com")
+            time.sleep(config.PAGE_LOAD_WAIT)
+        except Exception as e:
+            logger.error(f"Failed to navigate to Taxmann.com login page: {e}")
+            return False
         # Check for "sign in" button by class and click it if present
         try:
             sign_in_buttons = driver.find_elements(By.CLASS_NAME, "sign-in")

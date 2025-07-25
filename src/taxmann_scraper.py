@@ -27,7 +27,12 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
     def navigate_to_archives(self):
         logger.info("Navigating to Taxmann.com Archives page...")
         logger.info(f"Target URL: {self.target_url}")
-        self.driver.get(self.target_url)
+        try:
+            self.driver.get(self.target_url)
+            time.sleep(5)
+        except Exception as e:
+            logger.error(f"Failed to navigate to Taxmann.com Archives page: {e}")
+            return False
         try:
             close_buttons = self.driver.find_elements(By.CLASS_NAME, "close")
             if close_buttons:
@@ -42,11 +47,15 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
                         logger.debug(f"Error clicking close button: {e}")
         except Exception as e:
             logger.debug(f"Error clicking close button: {e}")
-        time.sleep(self.config.PAGE_LOAD_WAIT * 2)
+        time.sleep(5)
         logger.info("✅ Successfully navigated to Archives page")
         return True
 
     def scrape_yesterday_archives_updates(self, taxmann_gst_data, taxmann_direct_tax_data, taxmann_company_sebi_data, taxmann_fema_banking_data):
+        # Initialize variables that might be referenced in finally block
+        combined_updates = []
+        yesterday = ""
+        
         try:
             if not self.navigate_to_archives():
                 logger.error("Failed to navigate to Archives page, aborting scraping")
@@ -83,8 +92,6 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
 
             # Find all article containers and filter by date
             article_containers = self.driver.find_elements(By.CSS_SELECTOR, ".media, .article-item, .news-item")
-            
-            combined_updates = []
             for container in article_containers:
                 try:
                     # Find the date element within this article container
@@ -350,5 +357,8 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
                     continue
 
         finally:
-            logger.info(f"✅ Scraping completed. Found {len(combined_updates)} updates for {yesterday}")
+            if yesterday:
+                logger.info(f"✅ Scraping completed. Found {len(combined_updates)} updates for {yesterday}")
+            else:
+                logger.info(f"✅ Scraping completed. Found {len(combined_updates)} updates")
             self.cleanup()

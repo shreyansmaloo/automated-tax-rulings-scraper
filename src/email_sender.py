@@ -102,7 +102,24 @@ class EmailSender:
         html_content = html_content.replace('<head>', f'<head>{meta_tags}')
         
         return html_content
-        
+
+    def extract_court_abbreviation(self, judicial_level_location):
+        """Extract court abbreviation (e.g., HC MAD) from judicial level and location"""
+        # Extract court type abbreviation
+        court_abbr = ""
+        if "High Court" in judicial_level_location:
+            court_abbr = "HC"
+        elif "Supreme Court" in judicial_level_location:
+            court_abbr = "SC"
+        elif "ITAT" in judicial_level_location:
+            court_abbr = "ITAT"
+        elif "Tribunal" in judicial_level_location:
+            court_abbr = "Tribunal"
+        else:
+            court_abbr = "Court"
+        return court_abbr
+
+
     def create_html_content(self, all_data: Dict[str, Any] = None) -> str:
         """
         Create HTML content for the email with M2K branding
@@ -121,14 +138,14 @@ class EmailSender:
         # Process Taxsutra data
         taxsutra_data = all_data.get("taxsutra", {})
         
-        # Add rulings
+        # Add rulings and litigation tracker as articles
         for ruling in taxsutra_data.get("rulings", []):
             taxsutra_updates.append(ruling)
+        for ruling in taxsutra_data.get("litigation_tracker", []):
+            articles.append(ruling)
             
-        # Add expert corner and litigation tracker as articles
+        # Add expert corner as articles
         for article in taxsutra_data.get("expert_corner", []):
-            articles.append(article)
-        for article in taxsutra_data.get("litigation_tracker", []):
             articles.append(article)
         
         # Process Taxmann data
@@ -161,8 +178,7 @@ class EmailSender:
                 .item-title {{ font-weight: 600; color: {self.m2k_dark} !important; margin-bottom: 12px; font-size: 18px; line-height: 1.4; }}
                 .item-summary {{ color: #4a5568; margin: 20px 0; font-size: 14px; line-height: 1.6; background-color: #f7fafc; padding: 20px; border-radius: 6px; border-left: 3px solid {self.m2k_light}; }}
                 .item-link {{ color: white !important; text-decoration: none; font-weight: 600; font-size: 14px; display: inline-block; padding: 8px 16px; background-color: {self.m2k_light}; border-radius: 6px; }}
-                .item-meta {{ color: {self.m2k_gray}; font-size: 12px; margin-top: 20px; display: flex; flex-wrap: wrap; gap: 20px; }}
-                .meta-item {{ display: flex; align-items: center; gap: 5px; }}
+                .meta-item {{ color: {self.m2k_gray}; font-size: 16px; margin-top: 20px; }}
                 .no-data {{ color: {self.m2k_gray}; font-style: italic; text-align: center; padding: 30px; background-color: #f8fafc; border-radius: 6px; }}
                 .footer {{ background: linear-gradient(135deg, {self.m2k_primary}, {self.m2k_light}); color: white; padding: 25px; text-align: center; margin-top: 30px; }}
                 .footer p {{ margin: 5px 0; opacity: 0.9; }}
@@ -218,16 +234,12 @@ class EmailSender:
                 date = article.get("date", article.get("Date", article.get("Published Date", "")))
                 url = article.get("url", article.get("URL", ""))
                 summary = article.get("summary", article.get("Summary", ""))
-                citation = article.get("citation", article.get("Citation", ""))
                 
                 html_content += f"""
                         <div class="item">
                             <div class="item-title">{title}</div>
-                            {f'<div class="item-summary">{summary}</div>' if summary and summary != "N/A" else ''}
-                            {f'<a href="{url}" class="item-link" target="_blank">Read Article</a>' if url else ''}
+                            {f'<section class="item-summary">{summary}</section>' if summary and summary != "N/A" else ''}
                             <div class="item-meta">
-                                {f'<div class="meta-item">📅 {date}</div>' if date else ''}
-                                {f'<div class="meta-item">📋 {citation}</div>' if citation else ''}
                             </div>
                         </div>
                     """
@@ -248,26 +260,22 @@ class EmailSender:
         if taxsutra_updates:
             for ruling in taxsutra_updates:
                 title = ruling.get("Title", "No Title")
-                citation = ruling.get("Citation", "")
-                published_date = ruling.get("Published Date", "")
                 url = ruling.get("URL", "")
-                decision_summary = ruling.get("Decision Summary", "")
-                conclusion = ruling.get("Conclusion", "")
                 case_name = ruling.get("Case Name", "")
-                judicial_level = ruling.get("Judicial Level & Location", "")
+                judicial_level_location = ruling.get("Judicial Level & Location", "")
+                citation = ruling.get("Citation", "")
+                court_abbr = self.extract_court_abbreviation(judicial_level_location)
+
                 
                 # Get summary using the new method
                 summary = self.get_summary(ruling)
-                
+                summary_line = f"{case_name} - {judicial_level_location} - {citation}:{court_abbr}"
                 html_content += f"""
                         <div class="item">
                             <div class="item-title">{title}</div>
-                            {f'<div class="item-summary">{summary}</div>' if summary else ''}
-                            {f'<a href="{url}" class="item-link" target="_blank">View Ruling</a>' if url else ''}
+                            {f'<div class="item-summary">{summary}</div> <a href ="{url}" target="_blank">Read More</a>' if summary else ''}
                             <div class="item-meta">
-                                {f'<div class="meta-item">  |  {citation}</div>' if citation else ''}
-                                {f'<div class="meta-item">  |  {case_name}</div>' if case_name and case_name != "N/A" else ''}
-                                {f'<div class="meta-item">  |  {judicial_level}</div>' if judicial_level and judicial_level != "N/A" else ''}
+                                {f'<div class="meta-item">  |  {summary_line}</div>' if summary_line else ''}
                             </div>
                         </div>
                     """
@@ -288,9 +296,6 @@ class EmailSender:
         if taxmann_updates:
             for update in taxmann_updates:
                 title = update.get("Title", "No Title")
-                category = update.get("Category", "")
-                sub_category = update.get("Sub-Category", "")
-                date = update.get("Date", "")
                 url = update.get("URL", "")
                 summary = update.get("Summary", "")
                 citation = update.get("Citation", "")
@@ -298,14 +303,8 @@ class EmailSender:
                 html_content += f"""
                         <div class="item">
                             <div class="item-title">{title}</div>
-                            {f'<div class="item-summary">{summary}</div>' if summary and summary != "N/A" else ''}
-                            {f'<a href="{url}" class="item-link" target="_blank">View Update</a>' if url else ''}
-                            <div class="item-meta">
-                                {f'<div class="meta-item">  |  {date}</div>' if date else ''}
-                                {f'<div class="meta-item">  |  {citation}</div>' if citation else ''}
-                                {f'<div class="meta-item">  |  {category}</div>' if category else ''}
-                                {f'<div class="meta-item">  |  {sub_category}</div>' if sub_category else ''}
-                            </div>
+                            {f'<section class="item-summary">{summary}</section>' if summary and summary != "N/A" else ''}
+                            {f'<div class="meta-item">{citation}</div>' if citation else ''}
                         </div>
                     """
         else:
