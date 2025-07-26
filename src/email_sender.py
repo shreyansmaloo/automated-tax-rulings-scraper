@@ -10,7 +10,7 @@ import json
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import Dict, Any
 import logging
 from pathlib import Path
 
@@ -119,6 +119,21 @@ class EmailSender:
             court_abbr = "Court"
         return court_abbr
 
+    def shorten_summary(self, summary: str, max_lines: int = 3) -> str:
+        """
+        Truncate the summary to approximately max_lines lines (about 120 characters per line).
+        If the summary is short, return as is. Otherwise, truncate at the last word boundary and add ellipsis.
+        """
+        if not summary or summary == "N/A":
+            return ''
+        max_chars = max_lines * 120
+        if len(summary) <= max_chars:
+            return summary.strip()
+        truncated = summary[:max_chars]
+        # Avoid breaking in the middle of a word
+        if ' ' in truncated:
+            truncated = truncated.rsplit(' ', 1)[0]
+        return truncated.strip()
 
     def create_html_content(self, all_data: Dict[str, Any] = None) -> str:
         """
@@ -231,16 +246,19 @@ class EmailSender:
         if articles:
             for article in articles:
                 title = article.get("title", article.get("Title", "No Title"))
-                date = article.get("date", article.get("Date", article.get("Published Date", "")))
                 url = article.get("url", article.get("URL", ""))
                 summary = article.get("summary", article.get("Summary", ""))
+                category = article.get("category", article.get("Category", ""))
+                sub_category = article.get("sub_category", article.get("Sub-Category", ""))
                 
                 html_content += f"""
                         <div class="item">
                             <div class="item-title">{title}</div>
-                            {f'<section class="item-summary">{summary}</section>' if summary and summary != "N/A" else ''}
-                            <div class="item-meta">
+                            <div class="meta-item">
+                                {f'<span style="display:inline-block;background:{self.m2k_primary};color:white;border-radius:16px;padding:3px 14px;font-size:13px;margin-right:8px;font-weight:600;">{category}</span>' if category else ''}
+                                {f'<span style="display:inline-block;background:{self.m2k_light};color:white;border-radius:16px;padding:3px 14px;font-size:13px;font-weight:600;">{sub_category}</span>' if sub_category else ''}
                             </div>
+                            {f'<div class="item-summary">{self.shorten_summary(summary, 3)} <a href="{url}" target="_blank">...Read More</a></div>' if summary and summary != "N/A" else ''}
                         </div>
                     """
         else:
@@ -252,11 +270,11 @@ class EmailSender:
                 
                 <div class="section">
                     <div class="section-header">
-                        ⚖️  Taxsutra Updates ({len(taxsutra_updates)})
+                        Taxsutra Updates ({len(taxsutra_updates)})
                     </div>
                     <div class="section-content">
         """
-        
+            
         if taxsutra_updates:
             for ruling in taxsutra_updates:
                 title = ruling.get("Title", "No Title")
@@ -265,6 +283,8 @@ class EmailSender:
                 judicial_level_location = ruling.get("Judicial Level & Location", "")
                 citation = ruling.get("Citation", "")
                 court_abbr = self.extract_court_abbreviation(judicial_level_location)
+                category = ruling.get("Category", "")
+                sub_category = "Direct Tax"
 
                 
                 # Get summary using the new method
@@ -273,10 +293,12 @@ class EmailSender:
                 html_content += f"""
                         <div class="item">
                             <div class="item-title">{title}</div>
-                            {f'<div class="item-summary">{summary}</div> <a href ="{url}" target="_blank">Read More</a>' if summary else ''}
-                            <div class="item-meta">
-                                {f'<div class="meta-item">  |  {summary_line}</div>' if summary_line else ''}
+                            <div class="meta-item">
+                                {f'<span style="display:inline-block;background:{self.m2k_primary};color:white;border-radius:16px;padding:3px 14px;font-size:13px;margin-right:8px;font-weight:600;">{category}</span>' if category else ''}
+                                {f'<span style="display:inline-block;background:{self.m2k_light};color:white;border-radius:16px;padding:3px 14px;font-size:13px;font-weight:600;">{sub_category}</span>' if sub_category else ''}
                             </div>
+                            {f'<div class="item-summary">{self.shorten_summary(summary, 3)} <a href="{url}" target="_blank">...Read More</a></div>' if summary and summary != "N/A" else ''}
+                            {f'<div class="meta-item">  |  {summary_line}</div>' if summary_line else ''}
                         </div>
                     """
         else:
@@ -299,17 +321,23 @@ class EmailSender:
                 url = update.get("URL", "")
                 summary = update.get("Summary", "")
                 citation = update.get("Citation", "")
+                category = update.get("Category", "")
+                sub_category = update.get("Sub-Category", "")
                 
                 html_content += f"""
                         <div class="item">
                             <div class="item-title">{title}</div>
-                            {f'<section class="item-summary">{summary}</section>' if summary and summary != "N/A" else ''}
+                            <div class="meta-item">
+                                {f'<span style="display:inline-block;background:{self.m2k_primary};color:white;border-radius:16px;padding:3px 14px;font-size:13px;margin-right:8px;font-weight:600;">{category}</span>' if category else ''}
+                                {f'<span style="display:inline-block;background:{self.m2k_light};color:white;border-radius:16px;padding:3px 14px;font-size:13px;font-weight:600;">{sub_category}</span>' if sub_category else ''}
+                            </div>
+                            {f'<div class="item-summary">{self.shorten_summary(summary, 3)} <a href="{url}" target="_blank">...Read More</a></div>' if summary and summary != "N/A" else ''}
                             {f'<div class="meta-item">{citation}</div>' if citation else ''}
-                        </div>
-                    """
+                        </div>"""
+
         else:
             html_content += '<div class="no-data">No Taxmann updates found for this period.</div>'
-            
+
         html_content += """
                     </div>
                 </div>
