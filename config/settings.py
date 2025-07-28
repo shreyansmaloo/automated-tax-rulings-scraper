@@ -4,7 +4,6 @@ Loads settings from environment variables and provides defaults
 """
 
 import os
-import json
 import logging
 from pathlib import Path
 from dotenv import load_dotenv
@@ -24,10 +23,10 @@ class Config:
     # Google Sheets Configuration
     SPREADSHEET_ID = os.getenv("SPREADSHEET_ID", "")
     
-    _service_account_env = os.getenv("SERVICE_ACCOUNT_DETAILS", "")
-    if _service_account_env:
+    service_account_env = os.getenv("SERVICE_ACCOUNT_DETAILS", "")
+    if service_account_env:
         try:
-            SERVICE_ACCOUNT_DETAILS = json.loads(_service_account_env)
+            SERVICE_ACCOUNT_DETAILS = service_account_env
         except Exception as e:
             print(f"Failed to parse SERVICE_ACCOUNT_DETAILS as JSON: {e}")
             SERVICE_ACCOUNT_DETAILS = {}

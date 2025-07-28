@@ -109,3 +109,6 @@ docs/_build/
 
 # Chrome profile
 chrome_profile/
+
+# Rulings JSON
+rulings.json

@@ -38,7 +38,7 @@ class EmailSender:
     def load_rulings_data(self) -> Dict[str, Any]:
         """Load data from rulings.json file"""
         try:
-            rulings_file = Path("downloads/rulings.json")
+            rulings_file = Path("./rulings.json")
             if rulings_file.exists():
                 with open(rulings_file, 'r', encoding='utf-8') as f:
                     return json.load(f)

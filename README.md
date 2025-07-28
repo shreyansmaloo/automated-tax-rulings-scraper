@@ -145,7 +145,7 @@ The scraper can send daily update emails with M2K branding and comprehensive dat
 - **Professional Design**: Modern layout with hover effects
 
 **Data Sources:**
-- Uses `downloads/rulings.json` for comprehensive data
+- Uses `rulings.json` for comprehensive data
 - Automatically categorizes content based on URLs and metadata
 - Includes all available information: summaries, citations, case names, judicial levels
 

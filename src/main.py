@@ -20,6 +20,7 @@ from src.taxmann_scraper import TaxmannArchivesScraper
 from src.sheets_uploader import SheetsUploader
 from src.email_sender import EmailSender
 from src.utils.driver_utils import setup_driver, login_to_taxsutra, login_to_taxmann
+from src.file_upload import upload_and_cleanup
 
 def save_json_backup(rulings_data):
     """Save rulings data to JSON file as backup"""
@@ -29,7 +30,7 @@ def save_json_backup(rulings_data):
         downloads_dir.mkdir(exist_ok=True)
         
         # Save to fixed filename
-        json_filename = downloads_dir / "rulings.json"
+        json_filename = "rulings.json"
         
         with open(json_filename, 'w', encoding='utf-8') as f:
             json.dump(rulings_data, f, indent=2, ensure_ascii=False)
@@ -230,6 +231,12 @@ def main():
                 logger.warning("⚠️ Failed to send daily update email")
         except Exception as e:
             logger.error(f"❌ Error sending email: {e}")
+        
+        try:
+            logger.info("📡 Uploading files to FTP server...")
+            upload_and_cleanup()
+        except Exception as e:
+            logger.error(f"❌ Error uploading files: {e}")
         
         return 0
         
