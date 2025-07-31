@@ -51,7 +51,7 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
         logger.info("✅ Successfully navigated to Archives page")
         return True
 
-    def scrape_yesterday_archives_updates(self, taxmann_gst_data, taxmann_direct_tax_data, taxmann_company_sebi_data, taxmann_fema_banking_data):
+    def scrape_yesterday_archives_updates(self, taxmann_gst_data, taxmann_direct_tax_data, taxmann_company_sebi_data, taxmann_fema_banking_data, taxmann_international_tax_data, taxmann_transfer_pricing_data):
         # Initialize variables that might be referenced in finally block
         combined_updates = []
         yesterday = ""
@@ -133,6 +133,22 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
                             combined_updates.append({
                                 "URL": href,
                                 "Category": "FEMA & Banking",
+                                "Date": yesterday
+                            })
+                        
+                        # International Tax articles
+                        elif "/research/international-tax" in href:
+                            combined_updates.append({
+                                "URL": href,
+                                "Category": "International Tax",
+                                "Date": yesterday
+                            })
+
+                        # Transfer Pricing articles
+                        elif "/research/transfer-pricing" in href:
+                            combined_updates.append({
+                                "URL": href,
+                                "Category": "Transfer Pricing",
                                 "Date": yesterday
                             })
 
@@ -341,6 +357,32 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
 
                     elif category.strip().upper() in ["FEMA & BANKING", "FEMA"]:
                         taxmann_fema_banking_data.append({
+                            "Title": title,
+                            "Category": category,
+                            "Sub-Category": sub_category,
+                            "Summary": summary,
+                            "Citation": citation_text,
+                            "Date": date_val,
+                            "Source": "Taxmann.com",
+                            "URL": url,
+                            "PDF Path": pdf_filename
+                        })
+
+                    elif category.strip().upper() == "INTERNATIONAL TAX":
+                        taxmann_international_tax_data.append({
+                            "Title": title,
+                            "Category": category,
+                            "Sub-Category": sub_category,
+                            "Summary": summary,
+                            "Citation": citation_text,
+                            "Date": date_val,
+                            "Source": "Taxmann.com",
+                            "URL": url,
+                            "PDF Path": pdf_filename
+                        })
+
+                    elif category.strip().upper() == "TRANSFER PRICING":
+                        taxmann_transfer_pricing_data.append({
                             "Title": title,
                             "Category": category,
                             "Sub-Category": sub_category,

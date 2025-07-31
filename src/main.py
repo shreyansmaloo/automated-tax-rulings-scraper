@@ -91,6 +91,8 @@ def main():
         taxmann_direct_tax_data = []
         taxmann_company_sebi_data = []
         taxmann_fema_banking_data = []
+        taxmann_international_tax_data = []
+        taxmann_transfer_pricing_data = []
 
         # Initialize Taxmann scrapers      
         logger.info("📡 Initializing Taxmann scrapers...")
@@ -98,7 +100,7 @@ def main():
         
         # Scrape Taxmann data
         logger.info("📡 Starting Taxmann.com scraping...")
-        taxmann_scraper.scrape_yesterday_archives_updates(taxmann_gst_data, taxmann_direct_tax_data, taxmann_company_sebi_data, taxmann_fema_banking_data)
+        taxmann_scraper.scrape_yesterday_archives_updates(taxmann_gst_data, taxmann_direct_tax_data, taxmann_company_sebi_data, taxmann_fema_banking_data, taxmann_international_tax_data, taxmann_transfer_pricing_data)
         
         # Combine all data for backup
         logger.info("📡 Combining all data for backup...")
@@ -112,7 +114,9 @@ def main():
                 "gst": taxmann_gst_data,
                 "direct_tax": taxmann_direct_tax_data,
                 "company_sebi": taxmann_company_sebi_data,
-                "fema_banking": taxmann_fema_banking_data
+                "fema_banking": taxmann_fema_banking_data,
+                "international_tax": taxmann_international_tax_data,
+                "transfer_pricing": taxmann_transfer_pricing_data
             }
         }
         
@@ -200,6 +204,26 @@ def main():
                 logger.error("❌ Failed to upload Taxmann FEMA & Banking data to Google Sheets")
         else:
             logger.warning(f"⚠️ No Taxmann FEMA & Banking updates found for {time_period}")
+
+        if taxmann_international_tax_data:
+            logger.info(f"✅ Successfully scraped {len(taxmann_international_tax_data)} Taxmann International Tax updates")
+            if uploader.upload_taxmann_data(taxmann_international_tax_data):
+                logger.info("✅ Successfully uploaded Taxmann International Tax data to Google Sheets")
+                any_uploaded = True
+            else:
+                logger.error("❌ Failed to upload Taxmann International Tax data to Google Sheets")
+        else:
+            logger.warning(f"⚠️ No Taxmann International Tax updates found for {time_period}")
+
+        if taxmann_transfer_pricing_data:
+            logger.info(f"✅ Successfully scraped {len(taxmann_transfer_pricing_data)} Taxmann Transfer Pricing updates")
+            if uploader.upload_taxmann_data(taxmann_transfer_pricing_data):
+                logger.info("✅ Successfully uploaded Taxmann Transfer Pricing data to Google Sheets")
+                any_uploaded = True
+            else:
+                logger.error("❌ Failed to upload Taxmann Transfer Pricing data to Google Sheets")
+        else:
+            logger.warning(f"⚠️ No Taxmann Transfer Pricing updates found for {time_period}")
             
         if not any_uploaded:
             logger.warning("⚠️ No data to upload to Google Sheets.")
@@ -217,6 +241,8 @@ def main():
         logger.info(f"📋 Taxmann Direct Tax updates processed: {len(taxmann_direct_tax_data)}")
         logger.info(f"📋 Taxmann Company & SEBI updates processed: {len(taxmann_company_sebi_data)}")
         logger.info(f"📋 Taxmann FEMA & Banking updates processed: {len(taxmann_fema_banking_data)}")
+        logger.info(f"📋 Taxmann International Tax updates processed: {len(taxmann_international_tax_data)}")
+        logger.info(f"📋 Taxmann Transfer Pricing updates processed: {len(taxmann_transfer_pricing_data)}")
         logger.info(f"⏱️ Total time: {duration}")
         logger.info(f"📊 Google Sheets updated: {uploader.get_sheet_url()}")
         logger.info(f"💾 JSON backup: {json_file}")
