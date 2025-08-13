@@ -175,9 +175,30 @@ def login_to_taxmann(driver, config):
         except Exception as e:
             logger.error(f"Failed to navigate to Taxmann.com login page: {e}")
             return False
+
+        try:
+            close_buttons = driver.find_elements(By.CLASS_NAME, "close")
+            if close_buttons:
+                for btn in close_buttons:
+                    try:
+                        if btn.is_displayed() and btn.is_enabled():
+                            btn.click()
+                            logger.info("Closed pop-up by clicking 'close' button.")
+                            time.sleep(1)
+                            break
+                    except Exception as e:
+                        logger.debug(f"Error clicking close button: {e}")
+        except Exception as e:
+            logger.debug(f"Error searching for close button: {e}")
+
         # Check for "sign in" button by class and click it if present
         try:
-            sign_in_buttons = driver.find_elements(By.CLASS_NAME, "sign-in")
+            sign_in_buttons = driver.find_elements(By.CLASS_NAME, "nav-link sign-in")
+            if(sign_in_buttons):
+                logger.info(f"Found {len(sign_in_buttons)} 'sign in' buttons.")
+            else:
+                logger.info("No 'sign in' buttons found.")
+
             if sign_in_buttons:
                 for btn in sign_in_buttons:
                     try:
@@ -217,6 +238,8 @@ def login_to_taxmann(driver, config):
                 except Exception as e:
                     logger.debug(f"Error searching for close button: {e}")
                 try:
+                    driver.get("https://www.taxmann.com/gp/auth/login")
+                    time.sleep(config.PAGE_LOAD_WAIT)
                     login_with_email_btn = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
                         EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Login with Email')]"))
                     )

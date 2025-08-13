@@ -514,9 +514,10 @@ class ExpertCornerScraper(TaxSutraBaseScraper):
             date_text = date_div.text.strip()
             h3 = li.find_element(By.TAG_NAME, "h3")
             title_text = h3.text.strip()
-            return date_text, title_text
+            url = li.find_element(By.TAG_NAME, "a").get_attribute("href")
+            return date_text, title_text, url
         except Exception:
-            return None, None
+            return None, None, None
 
     def extract_article_tag(self, li):
         """Extract and return the text under class 'articleTag articlePurpleTag' from a single <li> element."""
@@ -546,11 +547,11 @@ class ExpertCornerScraper(TaxSutraBaseScraper):
             results = []
             li_elements = self.get_article_elements()
             for li in li_elements:
-                date_text, title_text = self.extract_article_info(li)
+                date_text, title_text, url = self.extract_article_info(li)
                 tag_text = self.extract_article_tag(li)
                 normalized_date = self.normalize_date_for_compare(date_text)
                 if date_text and title_text and tag_text == "Expert Articles" and normalized_date in normalized_targets:
-                    results.append({"title": title_text, "date": date_text})
+                    results.append({"title": title_text, "date": date_text, "URL": url})
                     
             logger.info(f"Returned all expert articles for yesterday or weekend (filtered for 'Expert Articles').")
             return results

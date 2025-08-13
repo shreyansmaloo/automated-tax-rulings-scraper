@@ -25,7 +25,7 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
         self.target_url = "https://www.taxmann.com/research/all/archives"
 
     def navigate_to_archives(self):
-        logger.info("Navigating to Taxmann.com Archives page...")
+        logger.info("📡 Navigating to Taxmann.com Archives page...")
         logger.info(f"Target URL: {self.target_url}")
         try:
             self.driver.get(self.target_url)
@@ -315,6 +315,36 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
                         except Exception as e:
                             logger.warning(f"Error while looking for PDF: {e}")
                             pdf_filename = None
+
+                    if sub_category.strip().lower() == "circulars & notifications":
+                        try:
+                            time.sleep(5)
+                            pdf_file = self.driver.find_element(By.XPATH, "//*[@id='download']")
+                            pdf_file.click()
+                            if pdf_file:
+                                # Sort by modification time to get the most recent
+                                latest_pdf = max(pdf_files, key=lambda x: x.stat().st_mtime)
+                                
+                                # Generate new filename with timestamp
+                                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                                new_filename = f"taxmann_notifications_{timestamp}.pdf"
+                                new_filepath = downloads_dir / new_filename
+                                
+                                # Rename the file
+                                try:
+                                    latest_pdf.rename(new_filepath)
+                                    logger.info(f"✅ Renamed downloaded PDF to: {new_filename}")
+                                    # Save the filename for the Excel link
+                                    pdf_filename = new_filename
+                                except Exception as rename_error:
+                                    logger.warning(f"Failed to rename PDF file: {rename_error}")
+                                    pdf_filename = None
+                            else:
+                                logger.warning("No PDF files found in downloads directory")
+                                pdf_filename = None
+                        except Exception:
+                            pass
+
 
                     if category.strip().upper() == "GST":
                         taxmann_gst_data.append({

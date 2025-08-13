@@ -77,12 +77,15 @@ class EmailSender:
         """Get the best summary from ruling data, prioritizing conclusion"""
         conclusion = ruling.get("Conclusion", "")
         decision_summary = ruling.get("Decision Summary", "")
+        summary = ruling.get("Summary", "")
         
-        # Prioritize conclusion over decision summary
+        # Prioritize conclusion over decision summary and summary
         if conclusion and conclusion != "N/A":
             return conclusion
         elif decision_summary and decision_summary != "N/A":
             return decision_summary
+        elif summary and summary != "N/A":
+            return summary
         else:
             return ""
     
@@ -119,14 +122,14 @@ class EmailSender:
             court_abbr = "Court"
         return court_abbr
 
-    def shorten_summary(self, summary: str, max_lines: int = 3) -> str:
+    def shorten_summary(self, summary: str, max_lines: int = 5) -> str:
         """
         Truncate the summary to approximately max_lines lines (about 120 characters per line).
         If the summary is short, return as is. Otherwise, truncate at the last word boundary and add ellipsis.
         """
         if not summary or summary == "N/A":
             return ''
-        max_chars = max_lines * 120
+        max_chars = max_lines * 300
         if len(summary) <= max_chars:
             return summary.strip()
         truncated = summary[:max_chars]
@@ -137,221 +140,89 @@ class EmailSender:
 
     def create_html_content(self, all_data: Dict[str, Any] = None) -> str:
         """
-        Create HTML content for the email with M2K branding
-        Uses data from rulings.json if all_data is not provided
+        Create a simple, formal, and minimal HTML content for the daily tax updates email.
+        Only includes essential information in a compact table format.
         """
-        
-        # Load data from rulings.json if not provided
         if all_data is None:
             all_data = self.load_rulings_data()
-        
-        # Extract and categorize data
-        articles = []
-        taxsutra_updates = []
+
+        # Collect all updates
+        taxsutra_updates = all_data.get("taxsutra", {}).get("rulings", [])
+        litigation_articles = all_data.get("taxsutra", {}).get("litigation_tracker", [])
+        expert_articles = all_data.get("taxsutra", {}).get("expert_corner", [])
         taxmann_updates = []
-        
-        # Process Taxsutra data
-        taxsutra_data = all_data.get("taxsutra", {})
-        
-        # Add rulings and litigation tracker as articles
-        for ruling in taxsutra_data.get("rulings", []):
-            taxsutra_updates.append(ruling)
-        for ruling in taxsutra_data.get("litigation_tracker", []):
-            articles.append(ruling)
-            
-        # Add expert corner as articles
-        for article in taxsutra_data.get("expert_corner", []):
-            articles.append(article)
-        
-        # Process Taxmann data
-        taxmann_data = all_data.get("taxmann", {})
-        for category, items in taxmann_data.items():
-            for item in items:
-                taxmann_updates.append(item)
-        
-        # Create optimized HTML content with inline styles for better email client compatibility
-        
-        # Create optimized HTML content with inline styles for better email client compatibility
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Daily Tax Updates - M2K Advisors</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f8fafc; }}
-                .container {{ background-color: white; margin: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); overflow: hidden; }}
-                .header {{ background: linear-gradient(135deg, {self.m2k_primary}, {self.m2k_light}); color: white; padding: 30px; text-align: center; }}
-                .header h1 {{ margin: 0; font-size: 32px; font-weight: 700; }}
-                .header p {{ margin: 10px 0 0 0; font-size: 16px; opacity: 0.9; }}
-                .m2k-logo {{ font-size: 14px; margin-top: 15px; opacity: 0.8; }}
-                .section {{ margin: 25px 0; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }}
-                .section-header {{ background: linear-gradient(135deg, {self.m2k_primary}, {self.m2k_light}); color: white; padding: 20px; font-weight: 600; font-size: 18px; }}
-                .section-content {{ padding: 25px; background-color: white; }}
-                .item {{ margin-bottom: 35px; padding: 25px; border-radius: 8px; border-left: 4px solid {self.m2k_primary}; background-color: #fefefe; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }}
-                .item-title {{ font-weight: 600; color: {self.m2k_dark} !important; margin-bottom: 12px; font-size: 18px; line-height: 1.4; }}
-                .item-summary {{ color: #4a5568; margin: 20px 0; font-size: 14px; line-height: 1.6; background-color: #f7fafc; padding: 20px; border-radius: 6px; border-left: 3px solid {self.m2k_light}; }}
-                .item-link {{ color: white !important; text-decoration: none; font-weight: 600; font-size: 14px; display: inline-block; padding: 8px 16px; background-color: {self.m2k_light}; border-radius: 6px; }}
-                .meta-item {{ color: {self.m2k_gray}; font-size: 16px; margin-top: 20px; }}
-                .no-data {{ color: {self.m2k_gray}; font-style: italic; text-align: center; padding: 30px; background-color: #f8fafc; border-radius: 6px; }}
-                .footer {{ background: linear-gradient(135deg, {self.m2k_primary}, {self.m2k_light}); color: white; padding: 25px; text-align: center; margin-top: 30px; }}
-                .footer p {{ margin: 5px 0; opacity: 0.9; }}
-                .stats {{ display: flex; justify-content: space-between; margin: 20px 0; padding: 20px; background-color: #f8fafc; border-radius: 8px; width: 100%; }}
-                .stat-item {{ text-align: center; flex: 1; margin: 0 15px; }}
-                .stat-item:first-child {{ margin-left: 0; }}
-                .stat-item:last-child {{ margin-right: 0; }}
-                .stat-number {{ font-size: 24px; font-weight: 700; color: {self.m2k_primary}; }}
-                .stat-label {{ font-size: 12px; color: {self.m2k_gray}; margin-top: 5px; }}
-                @media only screen and (max-width: 600px) {{
-                    .container {{ margin: 10px; }}
-                    .header {{ padding: 20px; }}
-                    .header h1 {{ font-size: 24px; }}
-                    .section-content {{ padding: 15px; }}
-                    .item {{ padding: 15px; margin-bottom: 20px; }}
-                    .stats {{ flex-direction: column; gap: 15px; }}
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>📊 Daily Tax Updates</h1>
-                    <p>Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</p>
-                    <div class="m2k-logo">M2K Advisors</div>
-                </div>
-                
-                <div class="stats">
-                    <div class="stat-item">
-                        <div class="stat-number">{len(articles)}</div>
-                        <div class="stat-label">Articles</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-number">{len(taxsutra_updates)}</div>
-                        <div class="stat-label">Taxsutra Updates</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-number">{len(taxmann_updates)}</div>
-                        <div class="stat-label">Taxmann Updates</div>
-                    </div>
-                </div>
-                
-                <div class="section">
-                    <div class="section-header">
-                        📰 Articles ({len(articles)})
-                    </div>
-                    <div class="section-content">
-        """
-        
-        if articles:
-            for article in articles:
-                title = article.get("title", article.get("Title", "No Title"))
-                url = article.get("url", article.get("URL", ""))
-                summary = article.get("summary", article.get("Summary", ""))
-                category = article.get("category", article.get("Category", ""))
-                sub_category = article.get("sub_category", article.get("Sub-Category", ""))
-                
-                html_content += f"""
-                        <div class="item">
-                            <div class="item-title">{title}</div>
-                            <div class="meta-item">
-                                {f'<span style="display:inline-block;background:{self.m2k_primary};color:white;border-radius:16px;padding:3px 14px;font-size:13px;margin-right:8px;font-weight:600;">{category}</span>' if category else ''}
-                                {f'<span style="display:inline-block;background:{self.m2k_light};color:white;border-radius:16px;padding:3px 14px;font-size:13px;font-weight:600;">{sub_category}</span>' if sub_category else ''}
-                            </div>
-                            {f'<div class="item-summary">{self.shorten_summary(summary, 3)} <a href="{url}" target="_blank">...Read More</a></div>' if summary and summary != "N/A" else ''}
-                        </div>
-                    """
-        else:
-            html_content += '<div class="no-data">No articles found for this period.</div>'
-            
-        html_content += f"""
-                    </div>
-                </div>
-                
-                <div class="section">
-                    <div class="section-header">
-                        Taxsutra Updates ({len(taxsutra_updates)})
-                    </div>
-                    <div class="section-content">
-        """
-            
+        for category, items in all_data.get("taxmann", {}).items():
+            taxmann_updates.extend(items)
+
+        def row_html(item, source, serial_number):
+            title = item.get("Title") or item.get("title") or "-"
+            summary = self.shorten_summary(self.get_summary(item), 2)
+            url = item.get("URL") or item.get("url") or ""
+            category = item.get("Category") or item.get("category") or "-"
+            return f"""
+            <tr>
+                <td style='padding:4px 8px;font-size:15px;'>{serial_number}</td>
+                <td style='padding:4px 8px;font-size:15px;'>
+                    <a href='{url}' style='color:#0a0a0a;text-decoration:underline;'>{title}</a>
+                    <br>
+                    <span style='font-size:15px;color:#0a0a0a;text-decoration:underline;'>{category} | {source}</span>
+                    <br>
+                    <span style='font-size:15px;color:#0a0a0a;'>{summary}</span>
+                </td>
+            </tr>"""
+
+        html = [
+            "<!DOCTYPE html>",
+            "<html>",
+            "<head>",
+            "<meta charset='UTF-8'>",
+            "<meta name='viewport' content='width=device-width, initial-scale=1.0'>",
+            "<title>Daily Tax Updates</title>",
+            "<style>body{font-family:Arial,sans-serif;font-size:13px;color:#222;margin:0;padding:0;}table{border-collapse:collapse;width:100%;margin:0;}th,td{border:1px solid #ddd;padding:4px 8px;}th{background:#f2f2f2;font-weight:bold;}tr:nth-child(even){background:#fafafa;}h2{font-size:16px;margin:18px 0 6px 0;}hr{margin:16px 0;}</style>",
+            "</head>",
+            "<body>",
+            f"<p style='font-size:15px;margin:12px 0 6px 0;'><b>Daily Tax Updates</b> <span style='color:#666;font-size:12px;'>({datetime.now().strftime('%d-%b-%Y %I:%M %p')})</span></p>",
+        ]
+
+        # Taxsutra Rulings Table
         if taxsutra_updates:
-            for ruling in taxsutra_updates:
-                title = ruling.get("Title", "No Title")
-                url = ruling.get("URL", "")
-                case_name = ruling.get("Case Name", "")
-                judicial_level_location = ruling.get("Judicial Level & Location", "")
-                citation = ruling.get("Citation", "")
-                court_abbr = self.extract_court_abbreviation(judicial_level_location)
-                category = ruling.get("Category", "")
-                sub_category = "Direct Tax"
+            html.append("<h2>Taxsutra Rulings</h2>")
+            html.append("<table><tr><th>S.No</th><th>Title, Category, Source & Summary</th></tr>")
+            for serial_number, item in enumerate(taxsutra_updates, start=1):
+                html.append(row_html(item, "Taxsutra", serial_number))
+            html.append("</table>")
 
-                
-                # Get summary using the new method
-                summary = self.get_summary(ruling)
-                summary_line = f"{case_name} - {judicial_level_location} - {citation}:{court_abbr}"
-                html_content += f"""
-                        <div class="item">
-                            <div class="item-title">{title}</div>
-                            <div class="meta-item">
-                                {f'<span style="display:inline-block;background:{self.m2k_primary};color:white;border-radius:16px;padding:3px 14px;font-size:13px;margin-right:8px;font-weight:600;">{category}</span>' if category else ''}
-                                {f'<span style="display:inline-block;background:{self.m2k_light};color:white;border-radius:16px;padding:3px 14px;font-size:13px;font-weight:600;">{sub_category}</span>' if sub_category else ''}
-                            </div>
-                            {f'<div class="item-summary">{self.shorten_summary(summary, 3)} <a href="{url}" target="_blank">...Read More</a></div>' if summary and summary != "N/A" else ''}
-                            {f'<div class="meta-item">  |  {summary_line}</div>' if summary_line else ''}
-                        </div>
-                    """
-        else:
-            html_content += '<div class="no-data">No Taxsutra updates found for this period.</div>'
-            
-        html_content += f"""
-                    </div>
-                </div>
-                
-                <div class="section">
-                    <div class="section-header">
-                        📋 Taxmann Updates ({len(taxmann_updates)})
-                    </div>
-                    <div class="section-content">
-        """
-        
+        # Litigation Tracker Table
+        if litigation_articles:
+            html.append("<h2>Litigation Tracker</h2>")
+            html.append("<table><tr><th>S.No</th><th>Title, Category, Source & Summary</th></tr>")
+            for serial_number, item in enumerate(litigation_articles, start=1):
+                html.append(row_html(item, "Taxsutra", serial_number))
+            html.append("</table>")
+
+        # Expert Corner Table
+        if expert_articles:
+            html.append("<h2>Expert Corner</h2>")
+            html.append("<table><tr><th>S.No</th><th>Title, Category, Source & Summary</th></tr>")
+            for serial_number, item in enumerate(expert_articles, start=1):
+                html.append(row_html(item, "Taxsutra", serial_number))
+            html.append("</table>")
+
+        # Taxmann Updates Table
         if taxmann_updates:
-            for update in taxmann_updates:
-                title = update.get("Title", "No Title")
-                url = update.get("URL", "")
-                summary = update.get("Summary", "")
-                citation = update.get("Citation", "")
-                category = update.get("Category", "")
-                sub_category = update.get("Sub-Category", "")
-                
-                html_content += f"""
-                        <div class="item">
-                            <div class="item-title">{title}</div>
-                            <div class="meta-item">
-                                {f'<span style="display:inline-block;background:{self.m2k_primary};color:white;border-radius:16px;padding:3px 14px;font-size:13px;margin-right:8px;font-weight:600;">{category}</span>' if category else ''}
-                                {f'<span style="display:inline-block;background:{self.m2k_light};color:white;border-radius:16px;padding:3px 14px;font-size:13px;font-weight:600;">{sub_category}</span>' if sub_category else ''}
-                            </div>
-                            {f'<div class="item-summary">{self.shorten_summary(summary, 3)} <a href="{url}" target="_blank">...Read More</a></div>' if summary and summary != "N/A" else ''}
-                            {f'<div class="meta-item">{citation}</div>' if citation else ''}
-                        </div>"""
+            html.append("<h2>Taxmann Updates</h2>")
+            html.append("<table><tr><th>S.No</th><th>Title, Category, Source & Summary</th></tr>")
+            for serial_number, item in enumerate(taxmann_updates, start=1):
+                html.append(row_html(item, "Taxmann", serial_number))
+            html.append("</table>")
 
-        else:
-            html_content += '<div class="no-data">No Taxmann updates found for this period.</div>'
+        if not (taxsutra_updates or litigation_articles or expert_articles or taxmann_updates):
+            html.append("<p style='color:#888;'>No updates available for today.</p>")
 
-        html_content += """
-                    </div>
-                </div>
-                
-                <div class="footer">
-                    <p>This email was automatically generated by the M2K Advisors Tax Rulings Scraper.</p>
-                    <p>For questions or support, please contact our team at admin@m2k.co.in</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        
-        return html_content
+        html.append("<hr><div style='font-size:11px;color:#888;'>This is an automated email. For queries, contact M2K Advisors.</div>")
+        html.append("</body></html>")
+        return "\n".join(html)
+    
     
     def send_email(self, all_data: Dict[str, Any] = None) -> bool:
         """
