@@ -146,13 +146,15 @@ class EmailSender:
             title = item.get("Title") or item.get("title") or "-"
             summary = self.shorten_summary(self.get_summary(item), 2)
             url = item.get("URL") or item.get("url") or ""
-            category = item.get("Category") or item.get("category") or "-"
+            # Hardcode category as 'Direct Tax' for Taxsutra items
+            category = "Direct Tax" if source == "Taxsutra" else (item.get("Category") or item.get("category") or "-")
             sub_category = item.get("Sub-Category") or item.get("sub-category") or ""
             
             # Build category info
-            cat_info = f"[{category} | {source}]"
-            if sub_category and source == "Taxsutra":
-                cat_info = f"[{category} | {sub_category} | {source}]"
+            if source == "Taxsutra":
+                cat_info = f"[{category} | {source}]"
+            else:
+                cat_info = f"[{category} | {source}]"
             
             # Minimal HTML with inline styles
             return (f"<tr>"
