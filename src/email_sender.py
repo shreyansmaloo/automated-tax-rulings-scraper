@@ -90,21 +90,8 @@ class EmailSender:
             return ""
     
     def ensure_full_content(self, html_content: str) -> str:
-        """Ensure email content is not truncated by email clients"""
-        # Add meta tags to prevent truncation
-        meta_tags = """
-        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta name="format-detection" content="telephone=no">
-        <meta name="format-detection" content="date=no">
-        <meta name="format-detection" content="address=no">
-        <meta name="format-detection" content="email=no">
-        """
-        
-        # Replace the existing head section
-        html_content = html_content.replace('<head>', f'<head>{meta_tags}')
-        
-        return html_content
+        """Minimal meta tags for Gmail compatibility"""
+        return html_content.replace('<head>', "<head><meta http-equiv=Content-Type content='text/html;charset=utf-8'><meta name=viewport content='width=device-width,initial-scale=1'>")
 
     def extract_court_abbreviation(self, judicial_level_location):
         """Extract court abbreviation (e.g., HC MAD) from judicial level and location"""
@@ -155,73 +142,93 @@ class EmailSender:
             taxmann_updates.extend(items)
 
         def row_html(item, source, serial_number):
+            """Generate a single table row with minimized HTML"""
             title = item.get("Title") or item.get("title") or "-"
             summary = self.shorten_summary(self.get_summary(item), 2)
             url = item.get("URL") or item.get("url") or ""
             category = item.get("Category") or item.get("category") or "-"
-            return f"""
-            <tr>
-                <td style='padding:4px 8px;font-size:15px;'>{serial_number}</td>
-                <td style='padding:4px 8px;font-size:15px;'>
-                    <a href='{url}' style='color:#0a0a0a;text-decoration:underline;'>{title}</a>
-                    <br>
-                    <span style='font-size:15px;color:#0a0a0a;text-decoration:underline;'>{category} | {source}</span>
-                    <br>
-                    <span style='font-size:15px;color:#0a0a0a;'>{summary}</span>
-                </td>
-            </tr>"""
+            sub_category = item.get("Sub-Category") or item.get("sub-category") or ""
+            
+            # Build category info
+            cat_info = f"[{category} | {source}]"
+            if sub_category and source == "Taxsutra":
+                cat_info = f"[{category} | {sub_category} | {source}]"
+            
+            # Minimal HTML with inline styles
+            return (f"<tr>"
+                    f"<td style='padding:4px 8px;font-size:15px'>{serial_number}</td>"
+                    f"<td style='padding:4px 8px;font-size:15px'>"
+                    f"<a href='{url}' style='color:{self.m2k_primary};text-decoration:none;font-weight:bold'>{title}</a>"
+                    f"<br><span style='color:#0a0a0a;text-decoration:underline'>{cat_info}</span>"
+                    f"<br><span style='color:#0a0a0a'>{summary}</span>"
+                    "</td></tr>")
 
-        html = [
-            "<!DOCTYPE html>",
-            "<html>",
-            "<head>",
-            "<meta charset='UTF-8'>",
-            "<meta name='viewport' content='width=device-width, initial-scale=1.0'>",
-            "<title>Daily Tax Updates</title>",
-            "<style>body{font-family:Arial,sans-serif;font-size:13px;color:#222;margin:0;padding:0;}table{border-collapse:collapse;width:100%;margin:0;}th,td{border:1px solid #ddd;padding:4px 8px;}th{background:#f2f2f2;font-weight:bold;}tr:nth-child(even){background:#fafafa;}h2{font-size:16px;margin:18px 0 6px 0;}hr{margin:16px 0;}</style>",
-            "</head>",
-            "<body>",
-            f"<p style='font-size:15px;margin:12px 0 6px 0;'><b>Daily Tax Updates</b> <span style='color:#666;font-size:12px;'>({datetime.now().strftime('%d-%b-%Y %I:%M %p')})</span></p>",
+        # Initialize HTML parts
+        html_parts = [
+            "<!DOCTYPE html><html><head>",
+            "<meta http-equiv=Content-Type content='text/html;charset=utf-8'>",
+            "<meta name=viewport content='width=device-width,initial-scale=1'>",
+            "<title>Tax Updates</title>",
+            "<style>body{font-family:Arial,sans-serif;font-size:13px;margin:0;padding:0}",
+            "table{width:100%;border-collapse:collapse;margin:0}",
+            "th,td{border:1px solid #ddd;padding:4px 8px}",
+            "th{background:#f2f2f2;font-weight:700}",
+            "tr:nth-child(even){background:#fafafa}",
+            "h2{font-size:16px;margin:12px 0 4px}",
+            "</style></head><body>"
         ]
 
         # Taxsutra Rulings Table
         if taxsutra_updates:
-            html.append("<h2>Taxsutra Rulings</h2>")
-            html.append("<table><tr><th>S.No</th><th>Title, Category, Source & Summary</th></tr>")
+            html_parts.extend([
+                "<h2>Taxsutra Rulings</h2>",
+                "<table><tr><th>S.No</th><th>Title, Category, Source & Summary</th></tr>"
+            ])
             for serial_number, item in enumerate(taxsutra_updates, start=1):
-                html.append(row_html(item, "Taxsutra", serial_number))
-            html.append("</table>")
+                html_parts.append(row_html(item, "Taxsutra", serial_number))
+            html_parts.append("</table>")
 
         # Litigation Tracker Table
         if litigation_articles:
-            html.append("<h2>Litigation Tracker</h2>")
-            html.append("<table><tr><th>S.No</th><th>Title, Category, Source & Summary</th></tr>")
+            html_parts.extend([
+                "<h2>Litigation Tracker</h2>",
+                "<table><tr><th>S.No</th><th>Title, Category, Source & Summary</th></tr>"
+            ])
             for serial_number, item in enumerate(litigation_articles, start=1):
-                html.append(row_html(item, "Taxsutra", serial_number))
-            html.append("</table>")
+                html_parts.append(row_html(item, "Litigation Tracker", serial_number))
+            html_parts.append("</table>")
 
         # Expert Corner Table
         if expert_articles:
-            html.append("<h2>Expert Corner</h2>")
-            html.append("<table><tr><th>S.No</th><th>Title, Category, Source & Summary</th></tr>")
+            html_parts.extend([
+                "<h2>Expert Corner</h2>",
+                "<table><tr><th>S.No</th><th>Title, Category, Source & Summary</th></tr>"
+            ])
             for serial_number, item in enumerate(expert_articles, start=1):
-                html.append(row_html(item, "Taxsutra", serial_number))
-            html.append("</table>")
+                html_parts.append(row_html(item, "Expert Corner", serial_number))
+            html_parts.append("</table>")
 
         # Taxmann Updates Table
         if taxmann_updates:
-            html.append("<h2>Taxmann Updates</h2>")
-            html.append("<table><tr><th>S.No</th><th>Title, Category, Source & Summary</th></tr>")
+            html_parts.extend([
+                "<h2>Taxmann Updates</h2>",
+                "<table><tr><th>S.No</th><th>Title, Category, Source & Summary</th></tr>"
+            ])
             for serial_number, item in enumerate(taxmann_updates, start=1):
-                html.append(row_html(item, "Taxmann", serial_number))
-            html.append("</table>")
+                html_parts.append(row_html(item, "Taxmann", serial_number))
+            html_parts.append("</table>")
 
         if not (taxsutra_updates or litigation_articles or expert_articles or taxmann_updates):
-            html.append("<p style='color:#888;'>No updates available for today.</p>")
+            html_parts.append("<p style='color:#888'>No updates available for today.</p>")
 
-        html.append("<hr><div style='font-size:11px;color:#888;'>This is an automated email. For queries, contact M2K Advisors.</div>")
-        html.append("</body></html>")
-        return "\n".join(html)
+        # Add footer and close HTML
+        html_parts.extend([
+            "<hr><div style='font-size:11px;color:#888'>This is an automated email. For queries, contact M2K Advisors.</div>",
+            "</body></html>"
+        ])
+        
+        # Join all parts with minimal whitespace
+        return "".join(html_parts)
     
     
     def send_email(self, all_data: Dict[str, Any] = None) -> bool:
@@ -235,8 +242,8 @@ class EmailSender:
             bool: True if email sent successfully, False otherwise
         """
         try:
-            # Create message with proper headers to prevent truncation
-            msg = MIMEMultipart("alternative")
+            # Create a simple MIME message with proper headers for Gmail
+            msg = MIMEMultipart()
             msg["Subject"] = f"Daily Tax Updates - M2K Advisors - {datetime.now().strftime('%Y-%m-%d')}"
             msg["From"] = self.sender_email
             msg["To"] = ", ".join(self.recipient_emails)
@@ -244,6 +251,9 @@ class EmailSender:
             msg["X-MSMail-Priority"] = "High"
             msg["Importance"] = "high"
             msg["X-Mailer"] = "M2K Tax Rulings Scraper"
+            msg["MIME-Version"] = "1.0"
+            msg["Content-Type"] = "text/html; charset=utf-8"
+            msg.preamble = 'This is a multi-part message in MIME format.'
             
             # Create HTML content
             html_content = self.create_html_content(all_data)
@@ -251,10 +261,8 @@ class EmailSender:
             # Ensure full content is displayed
             html_content = self.ensure_full_content(html_content)
             
-            # Attach HTML content with proper encoding
-            html_part = MIMEText(html_content, "html", "utf-8")
-            html_part.add_header("Content-Type", "text/html; charset=utf-8")
-            msg.attach(html_part)
+            # Set the message body directly
+            msg.attach(MIMEText(html_content, 'html', 'utf-8'))
             
             # Create SSL context
             context = ssl.create_default_context()
