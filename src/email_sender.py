@@ -109,7 +109,7 @@ class EmailSender:
             court_abbr = "Court"
         return court_abbr
 
-    def shorten_summary(self, summary: str, max_lines: int = 5) -> str:
+    def shorten_summary(self, summary: str, max_lines: int = 6) -> str:
         """
         Truncate the summary to approximately max_lines lines (about 120 characters per line).
         If the summary is short, return as is. Otherwise, truncate at the last word boundary and add ellipsis.
@@ -144,7 +144,7 @@ class EmailSender:
         def row_html(item, source, serial_number):
             """Generate a single table row with minimized HTML"""
             title = item.get("Title") or item.get("title") or "-"
-            summary = self.shorten_summary(self.get_summary(item), 2)
+            summary = self.get_summary(item)
             url = item.get("URL") or item.get("url") or ""
             # Hardcode category as 'Direct Tax' for Taxsutra items
             category = "Direct Tax" if source == "Taxsutra" else (item.get("Category") or item.get("category") or "-")
@@ -158,11 +158,11 @@ class EmailSender:
             
             # Minimal HTML with inline styles
             return (f"<tr>"
-                    f"<td style='padding:4px 8px;font-size:15px'>{serial_number}</td>"
-                    f"<td style='padding:4px 8px;font-size:15px'>"
-                    f"<a href='{url}' style='color:{self.m2k_primary};text-decoration:none;font-weight:bold'>{title}</a>"
-                    f"<br><span style='color:#0a0a0a;text-decoration:underline'>{cat_info}</span>"
-                    f"<br><span style='color:#0a0a0a'>{summary}</span>"
+                    f"<td style='padding:4px 8px;font-size:14px; font-family:tahoma'>{serial_number}</td>"
+                    f"<td style='padding:4px 8px;font-family:tahoma'>"
+                    f"<a href='{url}' style='color:{self.m2k_primary};text-decoration:none;font-weight:bold; font-size:15px !important'>{title}</a> <span style='color:#0a0a0a;text-decoration:italic;font-weight:bold'> | [{category}]</span>"
+                    # f"<br><span style='color:#0a0a0a;text-decoration:underline'>{cat_info}</span>"
+                    f"<span style='color:#0a0a0a; font-size:5px !important;'><p> </p></span> <br><span style='color:#0a0a0a; font-size:13px !important'>{summary}</span>"
                     "</td></tr>")
 
         # Initialize HTML parts
@@ -200,14 +200,14 @@ class EmailSender:
                 html_parts.append(row_html(item, "Litigation Tracker", serial_number))
             html_parts.append("</table>")
 
-        # Expert Corner Table
+        # TaxSutra Expert Corner Table
         if expert_articles:
             html_parts.extend([
-                "<h2>Expert Corner</h2>",
+                "<h2>Taxsutra Expert Corner</h2>",
                 "<table><tr><th>S.No</th><th>Title, Category, Source & Summary</th></tr>"
             ])
             for serial_number, item in enumerate(expert_articles, start=1):
-                html_parts.append(row_html(item, "Expert Corner", serial_number))
+                html_parts.append(row_html(item, "Taxsutra Expert Corner", serial_number))
             html_parts.append("</table>")
 
         # Taxmann Updates Table
