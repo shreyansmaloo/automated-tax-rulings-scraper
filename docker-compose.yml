@@ -4,7 +4,7 @@ services:
     platform: linux/amd64
     pull_policy: always
     container_name: tax-scraper-m2k
-    restart: unless-stopped
+    # No restart policy - container exits after completion
     volumes:
       # Mount the web directory to the container's downloads folder
       - /var/www/html/data_scraper/TS_TM/rulings:/app/downloads
@@ -35,4 +35,4 @@ services:
 
 networks:
   scraper-network:
-    driver: bridge 
+    driver: bridge

@@ -28,6 +28,7 @@ class EmailSender:
         self.sender_email = config.EMAIL_SENDER
         self.sender_password = config.EMAIL_PASSWORD
         self.recipient_emails = config.get_email_recipients()
+        self.bcc_emails = config.get_email_bcc_recipients()
         
         # M2K Brand Colors
         self.m2k_primary = "#ea580c"  # Orange
@@ -137,9 +138,18 @@ class EmailSender:
         taxsutra_updates = all_data.get("taxsutra", {}).get("rulings", [])
         litigation_articles = all_data.get("taxsutra", {}).get("litigation_tracker", [])
         expert_articles = all_data.get("taxsutra", {}).get("expert_corner", [])
+        
+        # Process Taxmann updates
         taxmann_updates = []
-        for category, items in all_data.get("taxmann", {}).items():
-            taxmann_updates.extend(items)
+        taxmann_data = all_data.get("taxmann", {})
+        for category, items in taxmann_data.items():
+            if isinstance(items, list):
+                for item in items:
+                    # Add category info to each item for display
+                    if isinstance(item, dict):
+                        item = item.copy()
+                        item['category'] = category.replace('_', ' ').title()
+                        taxmann_updates.append(item)
 
         def row_html(item, source, serial_number):
             """Generate a single table row with minimized HTML"""
@@ -246,9 +256,10 @@ class EmailSender:
         try:
             # Create a simple MIME message with proper headers for Gmail
             msg = MIMEMultipart()
-            msg["Subject"] = f"Daily Tax Updates - M2K Advisors - {datetime.now().strftime('%Y-%m-%d')}"
+            msg["Subject"] = f"M2K Daily Tax Updates - {datetime.now().strftime('%Y-%m-%d')}"
             msg["From"] = self.sender_email
             msg["To"] = ", ".join(self.recipient_emails)
+            # Note: BCC recipients are NOT added to headers (that's the point of BCC)
             msg["X-Priority"] = "1"
             msg["X-MSMail-Priority"] = "High"
             msg["Importance"] = "high"
@@ -269,13 +280,22 @@ class EmailSender:
             # Create SSL context
             context = ssl.create_default_context()
             
-            # Send email with timeout
-            with smtplib.SMTP_SSL(self.smtp_server, self.smtp_port, context=context, timeout=30) as server:
+            # Combine TO and BCC recipients for actual sending
+            all_recipients = self.recipient_emails + self.bcc_emails
+            
+            # Send email with timeout (using STARTTLS for Outlook)
+            with smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=30) as server:
+                server.ehlo()  # Identify ourselves to the server
+                server.starttls(context=context)  # Enable encryption (required for Outlook)
+                server.ehlo()  # Re-identify ourselves after encryption
                 server.login(self.sender_email, self.sender_password)
-                server.sendmail(self.sender_email, self.recipient_emails, msg.as_string())
+                server.sendmail(self.sender_email, all_recipients, msg.as_string())
             
             logger.info(f"✅ Email sent successfully to {', '.join(self.recipient_emails)}")
+            if self.bcc_emails:
+                logger.info(f"📧 BCC sent to: {', '.join(self.bcc_emails)}")
             logger.info(f"📧 Email size: {len(html_content)} characters ({len(html_content)/1024:.1f} KB)")
+            logger.info(f"📧 Total recipients: {len(all_recipients)} (TO: {len(self.recipient_emails)}, BCC: {len(self.bcc_emails)})")
             return True
             
         except Exception as e:

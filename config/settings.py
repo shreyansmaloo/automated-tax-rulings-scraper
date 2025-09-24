@@ -65,11 +65,14 @@ class Config:
     TIMEZONE = os.getenv("TIMEZONE", "Asia/Kolkata")
     
     # Email Configuration
-    EMAIL_SMTP_SERVER = os.getenv("EMAIL_SMTP_SERVER", "smtp.gmail.com")
-    EMAIL_SMTP_PORT = int(os.getenv("EMAIL_SMTP_PORT", "465"))
+    # EMAIL_SMTP_SERVER = os.getenv("EMAIL_SMTP_SERVER", "smtp.gmail.com")
+    # EMAIL_SMTP_PORT = int(os.getenv("EMAIL_SMTP_PORT", "465"))
+    EMAIL_SMTP_SERVER = os.getenv("EMAIL_SMTP_SERVER", "smtp-mail.outlook.com")
+    EMAIL_SMTP_PORT = int(os.getenv("EMAIL_SMTP_PORT", "587"))
     EMAIL_SENDER = os.getenv("EMAIL_SENDER", "")
     EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")
     EMAIL_RECIPIENT = os.getenv("EMAIL_RECIPIENT", "admin@m2k.co.in")
+    EMAIL_BCC = os.getenv("EMAIL_BCC", "")
     
     @classmethod
     def get_email_recipients(cls):
@@ -78,6 +81,16 @@ class Config:
         # Split by comma and clean up whitespace
         recipients = [email.strip() for email in recipients_str.split(",")]
         return recipients
+    
+    @classmethod
+    def get_email_bcc_recipients(cls):
+        """Get list of BCC email recipients from environment variable"""
+        bcc_str = os.getenv("EMAIL_BCC", "")
+        if not bcc_str:
+            return []
+        # Split by comma and clean up whitespace
+        bcc_recipients = [email.strip() for email in bcc_str.split(",") if email.strip()]
+        return bcc_recipients
     
     # Validation
     @classmethod
