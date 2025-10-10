@@ -166,6 +166,9 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
                     self.driver.get(url)
                     time.sleep(self.config.PAGE_LOAD_WAIT)
 
+                    # Initialize pdf_filename for this iteration
+                    pdf_filename = None
+
                     # 1. Title (generally h2)
                     try:
                         title_elem = self.driver.find_element(By.CSS_SELECTOR, "h2")
