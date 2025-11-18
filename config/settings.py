@@ -4,6 +4,7 @@ Loads settings from environment variables and provides defaults
 """
 
 import os
+import json
 import logging
 from pathlib import Path
 from dotenv import load_dotenv
@@ -23,16 +24,27 @@ class Config:
     # Google Sheets Configuration
     SPREADSHEET_ID = os.getenv("SPREADSHEET_ID", "")
     
+    # Service Account can be provided as JSON string in environment variable
+    # This is the recommended approach for cloud deployments
     service_account_env = os.getenv("SERVICE_ACCOUNT_DETAILS", "")
     if service_account_env:
         try:
-            SERVICE_ACCOUNT_DETAILS = service_account_env
+            SERVICE_ACCOUNT_DETAILS = json.loads(service_account_env)
         except Exception as e:
             print(f"Failed to parse SERVICE_ACCOUNT_DETAILS as JSON: {e}")
             SERVICE_ACCOUNT_DETAILS = {}
     else:
-        SERVICE_ACCOUNT_DETAILS = {}
-
+        # Fallback: Try to load from file if SERVICE_ACCOUNT_FILE is specified
+        service_account_file = os.getenv("SERVICE_ACCOUNT_FILE", "")
+        if service_account_file and Path(service_account_file).exists():
+            try:
+                with open(service_account_file, 'r') as f:
+                    SERVICE_ACCOUNT_DETAILS = json.load(f)
+            except Exception as e:
+                print(f"Failed to load service account from file {service_account_file}: {e}")
+                SERVICE_ACCOUNT_DETAILS = {}
+        else:
+            SERVICE_ACCOUNT_DETAILS = {}
 
     # Taxsutra Login Credentials
     TAXSUTRA_USERNAME = os.getenv("TAXSUTRA_USERNAME", "")
