@@ -1,5 +1,6 @@
 FROM python:3.11-slim
 
+
 # Install system dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -7,8 +8,12 @@ RUN apt-get update && \
     gnupg \
     ca-certificates \
     curl \
-    xz-utils && \
+    xz-utils \
+    tzdata && \
     rm -rf /var/lib/apt/lists/*
+
+# Set timezone
+ENV TZ=Asia/Kolkata
 
 # Install Chromium for web scraping
 RUN apt-get update && \
@@ -20,7 +25,9 @@ RUN apt-get update && \
 # Set environment variables for headless Chromium
 ENV DISPLAY=:99
 ENV CHROME_BINARY_PATH=/usr/bin/chromium
+ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
 ENV CHROME_OPTIONS="--headless --no-sandbox --disable-dev-shm-usage --disable-gpu"
+ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 

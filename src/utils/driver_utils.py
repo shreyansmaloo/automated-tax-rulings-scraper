@@ -57,9 +57,20 @@ def setup_driver(config):
             chrome_options.binary_location = config.CHROME_BINARY_PATH
             logger.info(f"Using Chrome binary from config: {config.CHROME_BINARY_PATH}")
         
-        # Create Chrome driver directly
+        # Create Chrome driver
         try:
-            driver = webdriver.Chrome(options=chrome_options)
+            # Check for CHROMEDRIVER_PATH env var (set in Docker)
+            chromedriver_path = os.environ.get("CHROMEDRIVER_PATH")
+            
+            if chromedriver_path and os.path.exists(chromedriver_path):
+                logger.info(f"Using system ChromeDriver from: {chromedriver_path}")
+                service = Service(executable_path=chromedriver_path)
+                driver = webdriver.Chrome(service=service, options=chrome_options)
+            else:
+                logger.info("Using WebDriverManager to manage ChromeDriver")
+                service = Service(ChromeDriverManager().install())
+                driver = webdriver.Chrome(service=service, options=chrome_options)
+                
             logger.info("Chrome WebDriver created successfully with user profile")
         except Exception as e:
             logger.error(f"Failed to create Chrome WebDriver with user profile: {e}")

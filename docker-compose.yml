@@ -15,21 +15,52 @@ services:
     environment:
       # Logging Configuration
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - LOG_FILE=logs/scraper.log
-      - ERROR_LOG_FILE=logs/error.log
-      
+      - LOG_FILE=/app/logs/scraper.log
+      - ERROR_LOG_FILE=/app/logs/error.log
+      - PYTHONUNBUFFERED=1
+
       # Server Configuration
       - HEADLESS_MODE=${HEADLESS_MODE:-true}
       - CHROME_BINARY_PATH=/usr/bin/chromium
+      - CHROMEDRIVER_PATH=/usr/bin/chromedriver
       - DOWNLOAD_DIR=/app/downloads
-      
+
+      # File Server Configuration
+      - FILE_SERVER_URL=${FILE_SERVER_URL}
+      - FTP_HOST=${FTP_HOST}
+      - FTP_PORT=${FTP_PORT}
+      - FTP_USER=${FTP_USER}
+      - FTP_PASS=${FTP_PASS}
+      - LOCAL_DIR=${LOCAL_DIR}
+      - REMOTE_DIR=${REMOTE_DIR}
+
       # Timing Configuration
       - WEBDRIVER_TIMEOUT=${WEBDRIVER_TIMEOUT:-8}
       - PAGE_LOAD_WAIT=${PAGE_LOAD_WAIT:-1.5}
+      - PAGE_LOAD_TIMEOUT=${PAGE_LOAD_TIMEOUT:-30}
       - RETRY_ATTEMPTS=${RETRY_ATTEMPTS:-3}
-      
+
       # Timezone
       - TIMEZONE=${TIMEZONE:-Asia/Kolkata}
+      - TZ=${TZ:-Asia/Kolkata}
+
+      # Credentials (from env file)
+      - SPREADSHEET_ID=${SPREADSHEET_ID}
+      - SERVICE_ACCOUNT_FILE=${SERVICE_ACCOUNT_FILE}
+      - SERVICE_ACCOUNT_DETAILS=${SERVICE_ACCOUNT_DETAILS}
+      - TAXSUTRA_USERNAME=${TAXSUTRA_USERNAME}
+      - TAXSUTRA_PASSWORD=${TAXSUTRA_PASSWORD}
+      - TAXMANN_EMAIL=${TAXMANN_EMAIL}
+      - TAXMANN_PASSWORD=${TAXMANN_PASSWORD}
+
+      # Email Configuration
+      - EMAIL_SMTP_SERVER=${EMAIL_SMTP_SERVER}
+      - EMAIL_SMTP_PORT=${EMAIL_SMTP_PORT}
+      - EMAIL_SENDER=${EMAIL_SENDER}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
+      - EMAIL_RECIPIENT=${EMAIL_RECIPIENT}
+      - EMAIL_BCC=${EMAIL_BCC}
+
     networks:
       - scraper-network
 
