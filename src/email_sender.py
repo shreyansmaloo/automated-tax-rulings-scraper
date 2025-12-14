@@ -283,13 +283,20 @@ class EmailSender:
             # Combine TO and BCC recipients for actual sending
             all_recipients = self.recipient_emails + self.bcc_emails
             
-            # Send email with timeout (using STARTTLS for Outlook)
-            with smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=30) as server:
-                server.ehlo()  # Identify ourselves to the server
-                server.starttls(context=context)  # Enable encryption (required for Outlook)
-                server.ehlo()  # Re-identify ourselves after encryption
-                server.login(self.sender_email, self.sender_password)
-                server.sendmail(self.sender_email, all_recipients, msg.as_string())
+            # Choose connection method based on port
+            if self.smtp_port == 465:
+                # Use implicit SSL for port 465
+                with smtplib.SMTP_SSL(self.smtp_server, self.smtp_port, context=context, timeout=30) as server:
+                    server.login(self.sender_email, self.sender_password)
+                    server.sendmail(self.sender_email, all_recipients, msg.as_string())
+            else:
+                # Use STARTTLS for port 587 (Outlook/Gmail common)
+                with smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=30) as server:
+                    server.ehlo()  # Identify ourselves to the server
+                    server.starttls(context=context)  # Enable encryption
+                    server.ehlo()  # Re-identify ourselves after encryption
+                    server.login(self.sender_email, self.sender_password)
+                    server.sendmail(self.sender_email, all_recipients, msg.as_string())
             
             logger.info(f"✅ Email sent successfully to {', '.join(self.recipient_emails)}")
             if self.bcc_emails:

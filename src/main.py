@@ -98,173 +98,175 @@ def main():
         logger.info("📡 Initializing Taxmann scrapers...")
         taxmann_scraper = TaxmannArchivesScraper(driver)
         
-        # Scrape Taxmann data
-        logger.info("📡 Starting Taxmann.com scraping...")
-        taxmann_scraper.scrape_yesterday_archives_updates(taxmann_gst_data, taxmann_direct_tax_data, taxmann_company_sebi_data, taxmann_fema_banking_data, taxmann_international_tax_data, taxmann_transfer_pricing_data)
-        
-        # Combine all data for backup
-        logger.info("📡 Combining all data for backup...")
-        all_data = {
-            "taxsutra": {
-                "rulings": taxsutra_rulings_data,
-                "expert_corner": taxsutra_expert_corner_data,
-                "litigation_tracker": taxsutra_litigation_tracker_data
-            },
-            "taxmann": {
-                "gst": taxmann_gst_data,
-                "direct_tax": taxmann_direct_tax_data,
-                "company_sebi": taxmann_company_sebi_data,
-                "fema_banking": taxmann_fema_banking_data,
-                "international_tax": taxmann_international_tax_data,
-                "transfer_pricing": taxmann_transfer_pricing_data
-            }
-        }
-        
-        # Save JSON backup
-        logger.info("📡 Saving JSON backup...")
-        json_file = save_json_backup(all_data)
-        
-        # Upload to Google Sheets
-        logger.info("📊 Uploading to Google Sheets...")
-        uploader = SheetsUploader()
-        any_uploaded = False
-        
-        if taxsutra_rulings_data:
-            logger.info(f"✅ Successfully scraped {len(taxsutra_rulings_data)} rulings")
-            if uploader.upload_data(taxsutra_rulings_data):
-                logger.info("✅ Successfully uploaded tax sutra rulings to Google Sheets")
-                logger.info(f"🔗 View at: {uploader.get_sheet_url()}")
-                any_uploaded = True
-            else:
-                logger.error("❌ Failed to upload tax sutra rulings to Google Sheets")
-                logger.info(f"💾 Data saved locally: {json_file}") 
-        else:
-            logger.warning(f"⚠️ No rulings found for {time_period}")
-            # return 1 
-        
-        if taxsutra_expert_corner_data:
-            logger.info(f"Expert Corner Data: {taxsutra_expert_corner_data}")
-            if uploader.upload_expert_corner_data(taxsutra_expert_corner_data):
-                logger.info("✅ Successfully uploaded expert corner data to Google Sheets")
-                any_uploaded = True
-            else:
-                logger.error("❌ Failed to upload expert corner data to Google Sheets")
-        else:
-            logger.warning(f"⚠️ No export articles found for {time_period}")
-            # return 1
-        
-        if taxsutra_litigation_tracker_data:
-            logger.info(f"Expert Corner Data: {taxsutra_litigation_tracker_data}")
-            if uploader.upload_litigation_tracker_data(taxsutra_litigation_tracker_data):
-                logger.info("✅ Successfully uploaded litigation tracker data to Google Sheets")
-                any_uploaded = True
-            else:
-                logger.error("❌ Failed to upload litigation tracker data to Google Sheets")
-        else:
-            logger.warning(f"⚠️ No litigation tracker articles found for {time_period}")
-            # return 1
-        
-        # Upload Taxmann data to Google Sheets
-        if taxmann_gst_data:
-            logger.info(f"✅ Successfully scraped {len(taxmann_gst_data)} Taxmann GST updates")
-            if uploader.upload_taxmann_data(taxmann_gst_data):
-                logger.info("✅ Successfully uploaded Taxmann GST data to Google Sheets")
-                any_uploaded = True
-            else:
-                logger.error("❌ Failed to upload Taxmann GST data to Google Sheets")
-        else:
-            logger.warning(f"⚠️ No Taxmann GST updates found for {time_period}")
-
-        if taxmann_direct_tax_data:    
-            logger.info(f"✅ Successfully scraped {len(taxmann_direct_tax_data)} Taxmann Direct Tax updates")
-            if uploader.upload_taxmann_data(taxmann_direct_tax_data):
-                logger.info("✅ Successfully uploaded Taxmann Direct Tax data to Google Sheets")
-                any_uploaded = True
-            else:
-                logger.error("❌ Failed to upload Taxmann Direct Tax data to Google Sheets")
-        else:
-            logger.warning(f"⚠️ No Taxmann Direct Tax updates found for {time_period}")
-        
-        if taxmann_company_sebi_data:
-            logger.info(f"✅ Successfully scraped {len(taxmann_company_sebi_data)} Taxmann Company & SEBI updates")
-            if uploader.upload_taxmann_data(taxmann_company_sebi_data):
-                logger.info("✅ Successfully uploaded Taxmann Company & SEBI data to Google Sheets")
-                any_uploaded = True
-            else:
-                logger.error("❌ Failed to upload Taxmann Company & SEBI data to Google Sheets")
-        else:
-            logger.warning(f"⚠️ No Taxmann Company & SEBI updates found for {time_period}")
-        
-        if taxmann_fema_banking_data:
-            logger.info(f"✅ Successfully scraped {len(taxmann_fema_banking_data)} Taxmann FEMA & Banking updates")
-            if uploader.upload_taxmann_data(taxmann_fema_banking_data):
-                logger.info("✅ Successfully uploaded Taxmann FEMA & Banking data to Google Sheets")
-                any_uploaded = True
-            else:
-                logger.error("❌ Failed to upload Taxmann FEMA & Banking data to Google Sheets")
-        else:
-            logger.warning(f"⚠️ No Taxmann FEMA & Banking updates found for {time_period}")
-
-        if taxmann_international_tax_data:
-            logger.info(f"✅ Successfully scraped {len(taxmann_international_tax_data)} Taxmann International Tax updates")
-            if uploader.upload_taxmann_data(taxmann_international_tax_data):
-                logger.info("✅ Successfully uploaded Taxmann International Tax data to Google Sheets")
-                any_uploaded = True
-            else:
-                logger.error("❌ Failed to upload Taxmann International Tax data to Google Sheets")
-        else:
-            logger.warning(f"⚠️ No Taxmann International Tax updates found for {time_period}")
-
-        if taxmann_transfer_pricing_data:
-            logger.info(f"✅ Successfully scraped {len(taxmann_transfer_pricing_data)} Taxmann Transfer Pricing updates")
-            if uploader.upload_taxmann_data(taxmann_transfer_pricing_data):
-                logger.info("✅ Successfully uploaded Taxmann Transfer Pricing data to Google Sheets")
-                any_uploaded = True
-            else:
-                logger.error("❌ Failed to upload Taxmann Transfer Pricing data to Google Sheets")
-        else:
-            logger.warning(f"⚠️ No Taxmann Transfer Pricing updates found for {time_period}")
+        try:
+            # Scrape Taxmann data
+            logger.info("📡 Starting Taxmann.com scraping...")
+            taxmann_scraper.scrape_yesterday_archives_updates(taxmann_gst_data, taxmann_direct_tax_data, taxmann_company_sebi_data, taxmann_fema_banking_data, taxmann_international_tax_data, taxmann_transfer_pricing_data)
             
-        if not any_uploaded:
-            logger.warning("⚠️ No data to upload to Google Sheets.")
-            # return 1
-        
-        # Success summary
-        end_time = datetime.now()
-        duration = end_time - start_time
-        
-        logger.info("🎉 SCRAPING COMPLETED SUCCESSFULLY!")
-        logger.info(f"📋 Taxsutra Rulings processed: {len(taxsutra_rulings_data)}")
-        logger.info(f"📋 Taxsutra Expert Corner processed: {len(taxsutra_expert_corner_data)}")
-        logger.info(f"📋 Taxsutra Litigation Tracker processed: {len(taxsutra_litigation_tracker_data)}")
-        logger.info(f"📋 Taxmann GST updates processed: {len(taxmann_gst_data)}")
-        logger.info(f"📋 Taxmann Direct Tax updates processed: {len(taxmann_direct_tax_data)}")
-        logger.info(f"📋 Taxmann Company & SEBI updates processed: {len(taxmann_company_sebi_data)}")
-        logger.info(f"📋 Taxmann FEMA & Banking updates processed: {len(taxmann_fema_banking_data)}")
-        logger.info(f"📋 Taxmann International Tax updates processed: {len(taxmann_international_tax_data)}")
-        logger.info(f"📋 Taxmann Transfer Pricing updates processed: {len(taxmann_transfer_pricing_data)}")
-        logger.info(f"⏱️ Total time: {duration}")
-        logger.info(f"📊 Google Sheets updated: {uploader.get_sheet_url()}")
-        logger.info(f"💾 JSON backup: {json_file}")
-        
-        # Send email notification
-        logger.info("📧 Sending daily update email...")
-        try:
-            email_sender = EmailSender()
-            if email_sender.send_email(all_data):
-                logger.info("✅ Daily update email sent successfully")
+            # Combine all data for backup
+            logger.info("📡 Combining all data for backup...")
+            all_data = {
+                "taxsutra": {
+                    "rulings": taxsutra_rulings_data,
+                    "expert_corner": taxsutra_expert_corner_data,
+                    "litigation_tracker": taxsutra_litigation_tracker_data
+                },
+                "taxmann": {
+                    "gst": taxmann_gst_data,
+                    "direct_tax": taxmann_direct_tax_data,
+                    "company_sebi": taxmann_company_sebi_data,
+                    "fema_banking": taxmann_fema_banking_data,
+                    "international_tax": taxmann_international_tax_data,
+                    "transfer_pricing": taxmann_transfer_pricing_data
+                }
+            }
+            
+            # Save JSON backup
+            logger.info("📡 Saving JSON backup...")
+            json_file = save_json_backup(all_data)
+            
+            # Upload to Google Sheets
+            logger.info("📊 Uploading to Google Sheets...")
+            uploader = SheetsUploader()
+            any_uploaded = False
+            
+            if taxsutra_rulings_data:
+                logger.info(f"✅ Successfully scraped {len(taxsutra_rulings_data)} rulings")
+                if uploader.upload_data(taxsutra_rulings_data):
+                    logger.info("✅ Successfully uploaded tax sutra rulings to Google Sheets")
+                    logger.info(f"🔗 View at: {uploader.get_sheet_url()}")
+                    any_uploaded = True
+                else:
+                    logger.error("❌ Failed to upload tax sutra rulings to Google Sheets")
+                    logger.info(f"💾 Data saved locally: {json_file}") 
             else:
-                logger.warning("⚠️ Failed to send daily update email")
-        except Exception as e:
-            logger.error(f"❌ Error sending email: {e}")
-        
-        try:
-            logger.info("📡 Uploading files to FTP server...")
-            upload_and_cleanup()
-        except Exception as e:
-            logger.error(f"❌ Error uploading files: {e}")
-        
-        return 0
+                logger.warning(f"⚠️ No rulings found for {time_period}")
+            
+            if taxsutra_expert_corner_data:
+                logger.info(f"Expert Corner Data: {taxsutra_expert_corner_data}")
+                if uploader.upload_expert_corner_data(taxsutra_expert_corner_data):
+                    logger.info("✅ Successfully uploaded expert corner data to Google Sheets")
+                    any_uploaded = True
+                else:
+                    logger.error("❌ Failed to upload expert corner data to Google Sheets")
+            else:
+                logger.warning(f"⚠️ No export articles found for {time_period}")
+            
+            if taxsutra_litigation_tracker_data:
+                logger.info(f"Expert Corner Data: {taxsutra_litigation_tracker_data}")
+                if uploader.upload_litigation_tracker_data(taxsutra_litigation_tracker_data):
+                    logger.info("✅ Successfully uploaded litigation tracker data to Google Sheets")
+                    any_uploaded = True
+                else:
+                    logger.error("❌ Failed to upload litigation tracker data to Google Sheets")
+            else:
+                logger.warning(f"⚠️ No litigation tracker articles found for {time_period}")
+            
+            # Upload Taxmann data to Google Sheets
+            if taxmann_gst_data:
+                logger.info(f"✅ Successfully scraped {len(taxmann_gst_data)} Taxmann GST updates")
+                if uploader.upload_taxmann_data(taxmann_gst_data):
+                    logger.info("✅ Successfully uploaded Taxmann GST data to Google Sheets")
+                    any_uploaded = True
+                else:
+                    logger.error("❌ Failed to upload Taxmann GST data to Google Sheets")
+            else:
+                logger.warning(f"⚠️ No Taxmann GST updates found for {time_period}")
+
+            if taxmann_direct_tax_data:    
+                logger.info(f"✅ Successfully scraped {len(taxmann_direct_tax_data)} Taxmann Direct Tax updates")
+                if uploader.upload_taxmann_data(taxmann_direct_tax_data):
+                    logger.info("✅ Successfully uploaded Taxmann Direct Tax data to Google Sheets")
+                    any_uploaded = True
+                else:
+                    logger.error("❌ Failed to upload Taxmann Direct Tax data to Google Sheets")
+            else:
+                logger.warning(f"⚠️ No Taxmann Direct Tax updates found for {time_period}")
+            
+            if taxmann_company_sebi_data:
+                logger.info(f"✅ Successfully scraped {len(taxmann_company_sebi_data)} Taxmann Company & SEBI updates")
+                if uploader.upload_taxmann_data(taxmann_company_sebi_data):
+                    logger.info("✅ Successfully uploaded Taxmann Company & SEBI data to Google Sheets")
+                    any_uploaded = True
+                else:
+                    logger.error("❌ Failed to upload Taxmann Company & SEBI data to Google Sheets")
+            else:
+                logger.warning(f"⚠️ No Taxmann Company & SEBI updates found for {time_period}")
+            
+            if taxmann_fema_banking_data:
+                logger.info(f"✅ Successfully scraped {len(taxmann_fema_banking_data)} Taxmann FEMA & Banking updates")
+                if uploader.upload_taxmann_data(taxmann_fema_banking_data):
+                    logger.info("✅ Successfully uploaded Taxmann FEMA & Banking data to Google Sheets")
+                    any_uploaded = True
+                else:
+                    logger.error("❌ Failed to upload Taxmann FEMA & Banking data to Google Sheets")
+            else:
+                logger.warning(f"⚠️ No Taxmann FEMA & Banking updates found for {time_period}")
+
+            if taxmann_international_tax_data:
+                logger.info(f"✅ Successfully scraped {len(taxmann_international_tax_data)} Taxmann International Tax updates")
+                if uploader.upload_taxmann_data(taxmann_international_tax_data):
+                    logger.info("✅ Successfully uploaded Taxmann International Tax data to Google Sheets")
+                    any_uploaded = True
+                else:
+                    logger.error("❌ Failed to upload Taxmann International Tax data to Google Sheets")
+            else:
+                logger.warning(f"⚠️ No Taxmann International Tax updates found for {time_period}")
+
+            if taxmann_transfer_pricing_data:
+                logger.info(f"✅ Successfully scraped {len(taxmann_transfer_pricing_data)} Taxmann Transfer Pricing updates")
+                if uploader.upload_taxmann_data(taxmann_transfer_pricing_data):
+                    logger.info("✅ Successfully uploaded Taxmann Transfer Pricing data to Google Sheets")
+                    any_uploaded = True
+                else:
+                    logger.error("❌ Failed to upload Taxmann Transfer Pricing data to Google Sheets")
+            else:
+                logger.warning(f"⚠️ No Taxmann Transfer Pricing updates found for {time_period}")
+                
+            if not any_uploaded:
+                logger.warning("⚠️ No data to upload to Google Sheets.")
+            
+            # Success summary
+            end_time = datetime.now()
+            duration = end_time - start_time
+            
+            logger.info("🎉 SCRAPING COMPLETED SUCCESSFULLY!")
+            logger.info(f"📋 Taxsutra Rulings processed: {len(taxsutra_rulings_data)}")
+            logger.info(f"📋 Taxsutra Expert Corner processed: {len(taxsutra_expert_corner_data)}")
+            logger.info(f"📋 Taxsutra Litigation Tracker processed: {len(taxsutra_litigation_tracker_data)}")
+            logger.info(f"📋 Taxmann GST updates processed: {len(taxmann_gst_data)}")
+            logger.info(f"📋 Taxmann Direct Tax updates processed: {len(taxmann_direct_tax_data)}")
+            logger.info(f"📋 Taxmann Company & SEBI updates processed: {len(taxmann_company_sebi_data)}")
+            logger.info(f"📋 Taxmann FEMA & Banking updates processed: {len(taxmann_fema_banking_data)}")
+            logger.info(f"📋 Taxmann International Tax updates processed: {len(taxmann_international_tax_data)}")
+            logger.info(f"📋 Taxmann Transfer Pricing updates processed: {len(taxmann_transfer_pricing_data)}")
+            logger.info(f"⏱️ Total time: {duration}")
+            logger.info(f"📊 Google Sheets updated: {uploader.get_sheet_url()}")
+            logger.info(f"💾 JSON backup: {json_file}")
+            
+            # Send email notification
+            logger.info("📧 Sending daily update email...")
+            try:
+                email_sender = EmailSender()
+                if email_sender.send_email(all_data):
+                    logger.info("✅ Daily update email sent successfully")
+                else:
+                    logger.warning("⚠️ Failed to send daily update email")
+            except Exception as e:
+                logger.error(f"❌ Error sending email: {e}")
+            
+            try:
+                logger.info("📡 Uploading files to FTP server...")
+                upload_and_cleanup()
+            except Exception as e:
+                logger.error(f"❌ Error uploading files: {e}")
+                
+            return 0
+
+        finally:
+            if driver:
+                logger.info("🛑 Closing WebDriver...")
+                driver.quit()
         
     except KeyboardInterrupt:
         logger.info("⏹️ Process interrupted by user")
