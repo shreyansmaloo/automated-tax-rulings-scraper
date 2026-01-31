@@ -25,7 +25,6 @@ class Config:
     SPREADSHEET_ID = os.getenv("SPREADSHEET_ID", "")
     
     # Service Account can be provided as JSON string in environment variable
-    # This is the recommended approach for cloud deployments
     service_account_env = os.getenv("SERVICE_ACCOUNT_DETAILS", "")
     if service_account_env:
         try:
@@ -34,7 +33,10 @@ class Config:
             print(f"Failed to parse SERVICE_ACCOUNT_DETAILS as JSON: {e}")
             SERVICE_ACCOUNT_DETAILS = {}
     else:
-        # Fallback: Try to load from file if SERVICE_ACCOUNT_FILE is specified
+        SERVICE_ACCOUNT_DETAILS = {}
+
+    # Fallback: Try to load from file if SERVICE_ACCOUNT_FILE is specified and current details are empty
+    if not SERVICE_ACCOUNT_DETAILS:
         service_account_file = os.getenv("SERVICE_ACCOUNT_FILE", "")
         if service_account_file and Path(service_account_file).exists():
             try:
@@ -43,8 +45,6 @@ class Config:
             except Exception as e:
                 print(f"Failed to load service account from file {service_account_file}: {e}")
                 SERVICE_ACCOUNT_DETAILS = {}
-        else:
-            SERVICE_ACCOUNT_DETAILS = {}
 
     # Taxsutra Login Credentials
     TAXSUTRA_USERNAME = os.getenv("TAXSUTRA_USERNAME", "")
