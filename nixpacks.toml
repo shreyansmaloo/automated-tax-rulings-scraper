@@ -1,0 +1,26 @@
+# Nixpacks configuration for automated tax rulings scraper
+# This tells Coolify/Nixpacks how to build and run the application
+
+[phases.setup]
+# Install system packages required for Chrome/Chromium
+aptPkgs = [
+  "chromium",
+  "chromium-driver",
+  "wget",
+  "gnupg",
+  "ca-certificates",
+  "curl"
+]
+
+[phases.install]
+# Install Python dependencies
+cmds = ["pip install -r requirements.txt"]
+
+[start]
+# Keep container running for scheduled tasks
+# Coolify will execute the actual scraper via scheduled tasks
+cmd = "tail -f /dev/null"
+
+[variables]
+# Set environment variables for Python
+PYTHONUNBUFFERED = "1"
