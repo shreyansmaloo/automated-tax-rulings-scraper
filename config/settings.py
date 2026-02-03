@@ -25,7 +25,7 @@ class Config:
     SPREADSHEET_ID = os.getenv("SPREADSHEET_ID", "")
     
     # Load Service Account from file (recommended for security)
-    service_account_file = os.getenv("SERVICE_ACCOUNT_FILE", "/app/config/credentials/service-account.json")
+    service_account_file = os.getenv("SERVICE_ACCOUNT_FILE", "config/credentials/service-account.json")
     if Path(service_account_file).exists():
         try:
             with open(service_account_file, 'r') as f:
