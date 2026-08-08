@@ -2,9 +2,12 @@
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Selenium](https://img.shields.io/badge/selenium-4.15.2-green.svg)](https://selenium.dev/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A high-performance, automated web scraper that extracts tax rulings from Taxsutra.com and Taxmann.com, and uploads them to Google Sheets. Optimized for server deployment with cron automation.
+
+> **Deploying or operating this in production?** Read **[DEPLOYMENT.md](DEPLOYMENT.md)** first — it's the
+> single source of truth for the actual Coolify/Docker deployment, environment variables, credentials
+> setup, and the scheduled task. This README covers local development and the general shape of the app.
 
 ## 🚀 Features
 
@@ -40,17 +43,25 @@ For each ruling published today, the scraper extracts:
 ```
 automated-tax-rulings-scraper/
 ├── src/
-│   ├── main.py              # Main application entry point
-│   ├── scraper.py           # Core scraping functionality
-│   ├── taxmann_scraper.py   # Taxmann.com specific scraper
-│   └── sheets_uploader.py   # Google Sheets integration
+│   ├── main.py                    # Main application entry point
+│   ├── taxsuta_scraper.py         # Taxsutra.com scrapers (Rulings, Expert Corner, Litigation Tracker)
+│   ├── taxmann_scraper.py         # Taxmann.com Archives scraper
+│   ├── sheets_uploader.py         # Google Sheets integration
+│   ├── email_sender.py            # Daily summary email
+│   ├── file_upload.py             # FTP upload + local cleanup of downloaded PDFs
+│   └── utils/
+│       ├── driver_utils.py        # Selenium/Chrome setup + Taxsutra/Taxmann logins
+│       ├── base_scraper.py        # Shared scraper base class
+│       └── date_utils.py          # Target-date calculation (yesterday / weekend-on-Monday)
 ├── config/
-│   ├── settings.py          # Configuration management
-│   └── credentials/         # Google service account files
-├── docs/                    # Documentation
-├── logs/                    # Application logs
-├── downloads/               # JSON backups
-└── env.example              # Example environment variables
+│   ├── settings.py                # Configuration management (env vars + service-account file)
+│   └── credentials/                # Google service account file goes here (gitignored)
+├── logs/                          # Application logs (scraper.log, error.log)
+├── downloads/                     # Downloaded PDFs (uploaded to FTP, then cleaned up)
+├── Dockerfile                     # Active build definition used by the Coolify deployment
+├── nixpacks.toml                  # Legacy/inactive — see DEPLOYMENT.md Part E for why it's not used
+├── DEPLOYMENT.md                  # Full deployment & operations runbook — read this for production
+└── env.example                    # Example environment variables
 ```
 
 ## ⚡ Quick Start
@@ -89,10 +100,17 @@ python3 src/main.py
 ```
 
 ### 6. Set Up Automation (Optional)
+
+For local/VPS use outside of Coolify, a plain crontab entry works:
 ```bash
 # Automated daily run (10:30 AM)
 (crontab -l 2>/dev/null; echo "30 10 * * * cd /path/to/automated-tax-rulings-scraper && source venv/bin/activate && python3 src/main.py >> logs/cron.log 2>&1") | crontab -
 ```
+
+**In production this repo is deployed to Coolify**, which runs the scraper via its own
+**Scheduled Tasks** feature (a cron-like scheduler that execs `python3 src/main.py` into the
+running container) rather than a system crontab — see
+[DEPLOYMENT.md Part L](DEPLOYMENT.md#part-l--set-up-the-daily-scheduled-task) for the exact setup.
 
 ## 🔧 Configuration
 
@@ -123,7 +141,7 @@ LOG_FILE=logs/scraper.log
 
 # Server Configuration (for deployment)
 HEADLESS_MODE=true
-CHROME_BINARY_PATH=/usr/bin/google-chrome
+CHROME_BINARY_PATH=/usr/bin/chromium  # must match whatever the Dockerfile installs — see DEPLOYMENT.md Part E
 ```
 
 ### Google Sheets Setup
@@ -155,21 +173,15 @@ To enable email notifications:
 3. Generate an App Password: Google Account → Security → App Passwords
 4. Set the environment variables in your `.env` file
 
-## 🚀 Deployment Options
+## 🚀 Deployment
 
-### Option 1: Hostinger VPS
-```bash
-chmod +x deploy/hostinger_deploy.sh
-./deploy/hostinger_deploy.sh
-```
+Production deployment is via **Coolify**, building the included `Dockerfile` (Debian-based, with a
+real `chromium`/`chromium-driver` install) and running the scraper as a Coolify **Scheduled Task**
+against the deployed container. Full step-by-step instructions — including why Dockerfile is used
+instead of Nixpacks, environment variable setup, the Google service-account credentials file, and
+the scheduled task configuration — are in **[DEPLOYMENT.md](DEPLOYMENT.md)**.
 
-### Option 2: Ubuntu/Debian Server
-```bash
-chmod +x deploy/ubuntu_setup.sh
-./deploy/ubuntu_setup.sh
-```
-
-### Option 3: Docker (Coming Soon)
+For a quick local Docker Compose run (development only, not how production is deployed):
 ```bash
 docker-compose up -d
 ```
@@ -195,8 +207,10 @@ docker-compose up -d
 
 ### Log Files
 - `logs/scraper.log`: Main application log
-- `logs/cron.log`: Cron job execution log
 - `logs/error.log`: Error-only log for monitoring
+- `logs/cron.log`: Only produced if you're running via a plain system crontab (see above); not
+  applicable when running under Coolify's Scheduled Tasks — for those, use Coolify's
+  **Scheduled Tasks → (task) → Recent executions → Download Logs** instead.
 
 ### Monitoring Commands
 ```bash
@@ -206,18 +220,29 @@ tail -f logs/scraper.log
 # Check recent errors
 tail -20 logs/error.log
 
-# Monitor cron execution
+# Monitor cron execution (plain crontab deployments only)
 grep "automated-tax-rulings" /var/log/syslog
 ```
+
+Note: `src/file_upload.py`'s FTP upload step uses `print()` rather than the logger, so its
+per-file status only appears live in the terminal/execution output, not in `logs/scraper.log`.
 
 ## 🔍 Troubleshooting
 
 ### Common Issues
 
 **Chrome Driver Issues**
+
+On the Coolify/Docker deployment, Chrome and its driver come from the Dockerfile's
+`apt-get install chromium chromium-driver` (Debian packages — see
+[DEPLOYMENT.md Part E](DEPLOYMENT.md#part-e--set-the-build-method-to-dockerfile) for why
+Debian specifically, not Ubuntu/Nixpacks). To update, bump the base image or rebuild without cache:
 ```bash
-# Update Chrome and ChromeDriver
-sudo apt update && sudo apt upgrade google-chrome-stable
+# In Coolify: Actions → Force deploy (without cache)
+```
+For a local (non-Docker) install:
+```bash
+sudo apt update && sudo apt install --reinstall chromium chromium-driver
 ```
 
 **Google Sheets Authentication**
@@ -238,7 +263,14 @@ chmod 600 config/credentials/service-account.json
 # Ensure you have an active subscription to Taxmann.com
 ```
 
-See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for detailed solutions.
+**Google Sheets upload fails with a 403 "PERMISSION_DENIED" error**
+
+The service-account credentials file being valid is not enough — the target Google Sheet must
+also be explicitly shared with the service account's email as **Editor**. See
+[DEPLOYMENT.md Part H](DEPLOYMENT.md#part-h--set-up-the-google-sheet-and-google-service-account).
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the full deployment runbook (written for non-technical
+readers too) and more detailed solutions.
 
 ## 📈 Sample Output
 
@@ -262,15 +294,10 @@ See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for detailed solutions.
 4. Add tests if applicable
 5. Submit a pull request
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
 ## 📞 Support
 
-- **Documentation**: Check the `docs/` folder
-- **Issues**: Create an issue in the repository
-- **Email**: [Your support email]
+- **Deployment/operations**: See [DEPLOYMENT.md](DEPLOYMENT.md)
+- **Issues**: Create an issue in the repository, or contact the repo owner
 
 ## 🏆 Credits
 
