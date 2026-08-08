@@ -573,11 +573,15 @@ class LitigationTrackerScraper(TaxSutraBaseScraper):
         
         if not self.setup_driver():
             return []
-        try:                
+        try:
             # Wait for articles to load
             time.sleep(10)
-            wrapper = self.driver.find_element(By.XPATH, '//*[@class="views-infinite-scroll-content-wrapper clearfix"]')
-            article_divs = wrapper.find_elements(By.XPATH, './div')
+            try:
+                wrapper = self.driver.find_element(By.XPATH, '//*[@class="views-infinite-scroll-content-wrapper clearfix"]')
+                article_divs = wrapper.find_elements(By.XPATH, './div')
+            except Exception as e:
+                logger.error(f"Could not find litigation tracker article list wrapper: {e}")
+                return []
             logger.info(f"Found {len(article_divs)} litigation tracker articles")
             
             # Get target dates based on current day
