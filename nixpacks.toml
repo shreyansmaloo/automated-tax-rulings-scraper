@@ -2,7 +2,11 @@
 # This tells Coolify/Nixpacks how to build and run the application
 
 [phases.setup]
-# Install system packages required for Chrome/Chromium
+# Install Nix Python with pip and system packages required for Chrome/Chromium
+nixPkgs = [
+  "python3",
+  "python3Packages.pip"
+]
 aptPkgs = [
   "chromium",
   "chromium-driver",
