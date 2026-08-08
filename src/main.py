@@ -61,8 +61,11 @@ def main():
 
         # Login to taxsutra
         logger.info("📡 Logging in to Taxsutra.com...")
-        login_to_taxsutra(driver, config)
-            
+        try:
+            login_to_taxsutra(driver, config)
+        except Exception as e:
+            logger.error(f"❌ Taxsutra login failed, skipping Taxsutra scraping: {e}")
+
         # Initialize Taxsutra Data Sets
         logger.info("📡 Initializing Taxsutra Data Sets...")
         taxsutra_rulings_data = []
@@ -71,19 +74,25 @@ def main():
 
         # Initialize Taxsutra scrappers
         logger.info("📡 Initializing Taxsutra rulings scraper...")
-        taxsutra_rulings_scraper = RulingsScraper(driver)
-        taxsutra_rulings_data = taxsutra_rulings_scraper.scrape_yesterday_rulings(taxsutra_rulings_scraper.target_url)
+        try:
+            taxsutra_rulings_scraper = RulingsScraper(driver)
+            taxsutra_rulings_data = taxsutra_rulings_scraper.scrape_yesterday_rulings(taxsutra_rulings_scraper.target_url)
+        except Exception as e:
+            logger.error(f"❌ Rulings scraping failed: {e}")
 
         logger.info("📡 Initializing Taxsutra expert corner scraper...")
-        taxsutra_expert_corner_scraper = ExpertCornerScraper(driver)
-        taxsutra_expert_corner_data = taxsutra_expert_corner_scraper.scrape_yesterday_expert_corner(taxsutra_expert_corner_scraper.target_url)
+        try:
+            taxsutra_expert_corner_scraper = ExpertCornerScraper(driver)
+            taxsutra_expert_corner_data = taxsutra_expert_corner_scraper.scrape_yesterday_expert_corner(taxsutra_expert_corner_scraper.target_url)
+        except Exception as e:
+            logger.error(f"❌ Expert corner scraping failed: {e}")
 
         logger.info("📡 Initializing Taxsutra litigation tracker scraper...")
-        taxsutra_litigation_tracker_scraper = LitigationTrackerScraper(driver)
-        taxsutra_litigation_tracker_data = taxsutra_litigation_tracker_scraper.scrape_yesterday_litigation_tracker(taxsutra_litigation_tracker_scraper.target_url)
-        
-        # logger.info("📡 Starting Taxmann.com scraping...")
-        login_to_taxmann(driver, config)
+        try:
+            taxsutra_litigation_tracker_scraper = LitigationTrackerScraper(driver)
+            taxsutra_litigation_tracker_data = taxsutra_litigation_tracker_scraper.scrape_yesterday_litigation_tracker(taxsutra_litigation_tracker_scraper.target_url)
+        except Exception as e:
+            logger.error(f"❌ Litigation tracker scraping failed: {e}")
 
         # Initialize Taxmann Data Sets
         logger.info("📡 Initializing Taxmann Data Sets...")
@@ -94,14 +103,19 @@ def main():
         taxmann_international_tax_data = []
         taxmann_transfer_pricing_data = []
 
-        # Initialize Taxmann scrapers      
-        logger.info("📡 Initializing Taxmann scrapers...")
-        taxmann_scraper = TaxmannArchivesScraper(driver)
-        
-        # Scrape Taxmann data
-        logger.info("📡 Starting Taxmann.com scraping...")
-        taxmann_scraper.scrape_yesterday_archives_updates(taxmann_gst_data, taxmann_direct_tax_data, taxmann_company_sebi_data, taxmann_fema_banking_data, taxmann_international_tax_data, taxmann_transfer_pricing_data)
-        
+        try:
+            login_to_taxmann(driver, config)
+
+            # Initialize Taxmann scrapers
+            logger.info("📡 Initializing Taxmann scrapers...")
+            taxmann_scraper = TaxmannArchivesScraper(driver)
+
+            # Scrape Taxmann data
+            logger.info("📡 Starting Taxmann.com scraping...")
+            taxmann_scraper.scrape_yesterday_archives_updates(taxmann_gst_data, taxmann_direct_tax_data, taxmann_company_sebi_data, taxmann_fema_banking_data, taxmann_international_tax_data, taxmann_transfer_pricing_data)
+        except Exception as e:
+            logger.error(f"❌ Taxmann scraping failed: {e}")
+
         # Combine all data for backup
         logger.info("📡 Combining all data for backup...")
         all_data = {
