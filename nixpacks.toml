@@ -2,11 +2,10 @@
 # This tells Coolify/Nixpacks how to build and run the application
 
 [phases.setup]
-# Install Nix Python with pip and system packages required for Chrome/Chromium
-nixPkgs = [
-  "python3",
-  "python3Packages.pip"
-]
+# Only add the system packages Chrome/Chromium needs. Leave nixPkgs alone so
+# Nixpacks' own Python provider still generates the /opt/venv + pip install
+# steps (a custom [phases.install] here would replace that venv creation,
+# leaving python3 without pip - see "No module named pip" build failures).
 aptPkgs = [
   "chromium",
   "chromium-driver",
@@ -15,10 +14,6 @@ aptPkgs = [
   "ca-certificates",
   "curl"
 ]
-
-[phases.install]
-# Install Python dependencies using python3 -m pip
-cmds = ["python3 -m pip install -r requirements.txt"]
 
 [start]
 # Keep container running for scheduled tasks
