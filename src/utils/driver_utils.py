@@ -47,13 +47,7 @@ def setup_driver(config):
         }
         chrome_options.add_experimental_option("prefs", prefs)
         
-        # Force headless inside a container regardless of HEADLESS_MODE - a server
-        # container has no display, so a misconfigured env var must not be able to
-        # make Chrome try to open a GUI window (it fails instantly, silently no-ops
-        # every downstream step, and still emails an empty "no updates" report).
-        in_container = os.path.exists("/.dockerenv")
-        if config.HEADLESS_MODE or in_container:
-            chrome_options.add_argument('--headless=new')
+        chrome_options.add_argument('--headless=new')
         chrome_options.add_argument('--no-sandbox')
         chrome_options.add_argument('--disable-dev-shm-usage')
         
