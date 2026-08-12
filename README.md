@@ -101,9 +101,10 @@ python3 src/main.py
 
 ### 6. Set Up Automation (Optional)
 
-For local/VPS use outside of Coolify, a plain crontab entry works:
+For local/VPS use outside of Coolify, a plain crontab entry works (this uses the machine's own
+local timezone directly, unlike Coolify below):
 ```bash
-# Automated daily run (10:30 AM)
+# Automated daily run (10:30 AM local time)
 (crontab -l 2>/dev/null; echo "30 10 * * * cd /path/to/automated-tax-rulings-scraper && source venv/bin/activate && python3 src/main.py >> logs/cron.log 2>&1") | crontab -
 ```
 
@@ -111,6 +112,9 @@ For local/VPS use outside of Coolify, a plain crontab entry works:
 **Scheduled Tasks** feature (a cron-like scheduler that execs `python3 src/main.py` into the
 running container) rather than a system crontab — see
 [DEPLOYMENT.md Part L](DEPLOYMENT.md#part-l--set-up-the-daily-scheduled-task) for the exact setup.
+**Important**: Coolify's Scheduled Task frequency runs in the server's own clock (UTC on the
+current deployment), not IST — see Part L for the conversion. Writing `0 8 * * *` there does
+**not** mean 8 AM IST.
 
 ## 🔧 Configuration
 
@@ -140,8 +144,10 @@ LOG_LEVEL=INFO
 LOG_FILE=logs/scraper.log
 
 # Server Configuration (for deployment)
-HEADLESS_MODE=true
 CHROME_BINARY_PATH=/usr/bin/chromium  # must match whatever the Dockerfile installs — see DEPLOYMENT.md Part E
+# Note: Chrome always runs headless in a container, unconditionally - there's no HEADLESS_MODE
+# toggle anymore. A configurable version of this once caused a broken deploy to silently email
+# everyone an empty "no updates" report, so it's intentionally not configurable.
 ```
 
 ### Google Sheets Setup

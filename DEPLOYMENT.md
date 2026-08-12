@@ -338,7 +338,6 @@ TAXMANN_PASSWORD=paste_taxmann_password_here
 
 # ===== Chrome / Selenium (leave these as-is) =====
 CHROME_BINARY_PATH=/usr/bin/chromium
-HEADLESS_MODE=true
 WEBDRIVER_TIMEOUT=8
 PAGE_LOAD_WAIT=1.5
 RETRY_ATTEMPTS=3
@@ -372,10 +371,25 @@ TIMEZONE=Asia/Kolkata
 A couple of notes:
 - `SERVICE_ACCOUNT_FILE`, `CHROME_BINARY_PATH`, the logging paths, and
   `TIMEZONE` are already correct as shown — you don't need to change those.
+- There's no `HEADLESS_MODE` variable to set — the app always launches Chrome
+  headless when running in a container, unconditionally, so it can't be
+  misconfigured. (An earlier version of this app made that configurable via
+  env var, which once caused a broken deploy to silently send an empty "no
+  updates" email to everyone — see the "Chrome fails but the email still
+  sends" pitfall below.)
 - After pasting, Coolify will list these as individual variables you can
   still edit one at a time later (Environment Variables page, switch back to
   **Normal view**) if you ever need to update a single value like a rotated
   password.
+- **Security**: for every secret in this list (Taxsutra/Taxmann passwords,
+  `EMAIL_PASSWORD`, `FTP_PASS`) go to that variable's settings after pasting
+  and turn **off "Available at Buildtime"** (leave "Available at Runtime"
+  on). The app never needs these at build time — the Dockerfile doesn't
+  declare `ARG`s for them — but Coolify's default is to pass every variable
+  marked buildtime into `docker build --build-arg`, which prints it in
+  plaintext in the build logs and bakes it into the image's layer history.
+  This isn't hypothetical: it happened on this deployment and was only
+  caught by chance.
 
 ---
 
@@ -430,9 +444,18 @@ day, automatically.
 3. Fill in:
    - **Name**: `Daily Tax Rulings Scraper`
    - **Command**: `python3 src/main.py`
-   - **Frequency**: `0 8 * * *` (this means "every day at 8:00 AM" — the
-     five values are minute, hour, day-of-month, month, day-of-week, and `*`
-     means "any")
+   - **Frequency**: `30 2 * * *` — the five values are minute, hour,
+     day-of-month, month, day-of-week, and `*` means "any". **This field runs
+     in the server's own clock (UTC on this box), not IST** — Coolify does
+     not know or care about the app's `TIMEZONE` env var, that setting only
+     affects the app's internal "what date is yesterday" logic, not when the
+     cron fires. `30 2 * * *` = 2:30 AM UTC = **8:00 AM IST**. Writing
+     `0 8 * * *` here (i.e. treating the field as if it were already IST)
+     actually fires at 8:00 AM UTC = 1:30 PM IST — this exact mistake
+     happened once already and caused the daily email to go out at the
+     wrong time with a stale "yesterday". If your server's timezone isn't
+     UTC, check with `date -u` vs `date` over SSH and adjust the offset
+     accordingly.
    - **Timeout (seconds)**: `1800` (30 minutes — the scraper can take a
      while on days with lots of rulings to check; the default of 300
      seconds is too short and would cut the run off partway through)
@@ -463,6 +486,27 @@ isn't shared with the service account yet, and so on).
 
 ---
 
+## Pitfalls that have actually happened on this deployment
+
+- **"Chrome fails but the email still sends anyway."** If Chrome/WebDriver
+  fails to launch for any reason, every scraper step downstream just catches
+  the error and no-ops (each scraper's constructor raises "driver is None",
+  which the calling code logs and moves past) — but the email-sending step
+  isn't gated on any of that actually working, so it still composes and
+  sends a "no updates today" email regardless. A run that finishes in a
+  couple of seconds and shows `status: success` in Coolify can still mean
+  nothing was scraped and an empty email already went out. **Always sanity
+  check the duration** of a run before trusting it — a real run takes
+  several minutes; anything under ~10 seconds almost certainly crashed
+  immediately (check **Recent executions → Download Logs** for the actual
+  cause) even if Coolify reports it as "success".
+- **The Scheduled Task frequency is in the server's clock, not IST** — see
+  Part L above. Don't type `0 8 * * *` expecting 8 AM IST.
+- **Don't leave secrets marked "Available at Buildtime"** — see the security
+  note in Part I above.
+
+---
+
 ## 16. Quick reference
 
 - **GitHub repo**: `git@github-shreyansmaloo:shreyansmaloo/automated-tax-rulings-scraper.git`
@@ -470,5 +514,5 @@ isn't shared with the service account yet, and so on).
 - **Google Sheet**: `https://docs.google.com/spreadsheets/d/1eknhrQZT8hwH58DJeeFZGOsqh7m7f7kJ1S_EZAlZ6HM/edit`
 - **Service account email** (must be an Editor on the sheet above): `python-data-scrapper@cloud-learning1.iam.gserviceaccount.com`
 - **FTP host**: `82.112.232.12`
-- **Scheduled task**: "Daily Tax Rulings Scraper" — `0 8 * * *` — `python3 src/main.py` — 1800s timeout
+- **Scheduled task**: "Daily Tax Rulings Scraper" — `30 2 * * *` (UTC — this is 8:00 AM IST, see Part L) — `python3 src/main.py` — 1800s timeout
 - **Build Pack**: Dockerfile (not Nixpacks — see Part E)
