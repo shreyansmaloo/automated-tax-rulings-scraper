@@ -63,98 +63,73 @@ class TaxmannArchivesScraper(TaxSutraBaseScraper):
 
             # Compute yesterday's date in 'DD MMM YYYY' format
             yesterday = (datetime.now() - timedelta(days=1)).strftime("%d %b %Y")
+            target_date = (datetime.now() - timedelta(days=1)).date()
             logger.info(f"Looking for updates with date: {yesterday}")
 
-            # Increase items per page to 100 by selecting from the dropdown
-            try:
-                # Wait for the items-per-page dropdown to be present
-                per_page_dropdown = WebDriverWait(self.driver, self.config.WEBDRIVER_TIMEOUT).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, "select[aria-label*='items per page'], select[name*='perPage'], select"))
-                )
-                # Check if dropdown is already set to 100
-                current_value = per_page_dropdown.get_attribute("value")
-                if current_value != "100":
-                    # Try to select 100
-                    for option in per_page_dropdown.find_elements(By.TAG_NAME, "option"):
-                        if option.text.strip() == "100" or option.get_attribute("value") == "100":
-                            option.click()
-                            logger.info("Set items per page to 100")
-                            break
-                    else:
-                        logger.warning("Could not find '100' option in items per page dropdown")
-                    # Wait for the page to reload after changing the dropdown
-                    time.sleep(self.config.PAGE_LOAD_WAIT)
-                else:
-                    logger.info("Items per page already set to 100")
-            except Exception as e:
-                logger.warning(f"Could not set items per page to 100: {e}")
+            category_by_path = [
+                ("/research/gst-new", "GST"),
+                ("/research/direct-tax-laws", "Direct Tax"),
+                ("/research/company-and-sebi", "Company & SEBI"),
+                ("/research/fema-banking-insurance", "FEMA & Banking"),
+                ("/research/international-tax", "International Tax"),
+                ("/research/transfer-pricing", "Transfer Pricing"),
+            ]
 
+            # The archives page is sorted newest-first and paginates via ngx-pagination
+            # (no more "items per page" control). Page through it, collecting only
+            # yesterday's items, until a full page contains nothing from today or
+            # yesterday (i.e. we've paged past the target date).
+            seen_urls = set()
+            max_pages = 30
+            for page_num in range(1, max_pages + 1):
+                logger.info(f"Scanning Taxmann archives page {page_num}")
+                article_containers = self.driver.find_elements(By.CSS_SELECTOR, ".media, .article-item, .news-item")
 
-            # Find all article containers and filter by date
-            article_containers = self.driver.find_elements(By.CSS_SELECTOR, ".media, .article-item, .news-item")
-            for container in article_containers:
-                try:
-                    # Find the date element within this article container
-                    date_elem = container.find_element(By.CSS_SELECTOR, ".news-date-1, .date, .published-date")
-                    date_text = date_elem.text.strip()
-                    
-                    # Only if the date matches yesterday, get the article link
-                    if date_text == yesterday:
-                        # Find the main article link (usually the title link)
+                page_has_target_or_newer = False
+                for container in article_containers:
+                    try:
+                        date_elem = container.find_element(By.CSS_SELECTOR, ".news-date-1, .date, .published-date")
+                        date_text = date_elem.text.strip()
+                        try:
+                            container_date = datetime.strptime(date_text, "%d %b %Y").date()
+                        except ValueError:
+                            continue
+
+                        if container_date >= target_date:
+                            page_has_target_or_newer = True
+
+                        if container_date != target_date:
+                            continue
+
                         article_link = container.find_element(By.CSS_SELECTOR, "a[href*='/research/'], .title a, .headline a, h3 a, h4 a")
                         href = article_link.get_attribute("href")
-                        
-                        # GST articles
-                        if "/research/gst-new" in href:
-                            combined_updates.append({
-                                "URL": href,
-                                "Category": "GST",
-                                "Date": yesterday
-                            })
+                        if not href or href in seen_urls:
+                            continue
 
-                        # Income Tax / Direct Tax Laws articles
-                        elif "/research/direct-tax-laws" in href:
-                            combined_updates.append({
-                                "URL": href,
-                                "Category": "Direct Tax",
-                                "Date": yesterday
-                            })
+                        for path, category in category_by_path:
+                            if path in href:
+                                combined_updates.append({
+                                    "URL": href,
+                                    "Category": category,
+                                    "Date": yesterday
+                                })
+                                seen_urls.add(href)
+                                break
 
-                        # Company & SEBI articles
-                        elif "/research/company-and-sebi" in href:
-                            combined_updates.append({
-                                "URL": href,
-                                "Category": "Company & SEBI",
-                                "Date": yesterday
-                            })
+                    except Exception as e:
+                        logger.debug(f"Skipping container due to error: {e}")
+                        continue
 
-                        # FEMA & Banking articles
-                        elif "/research/fema-banking-insurance" in href:
-                            combined_updates.append({
-                                "URL": href,
-                                "Category": "FEMA & Banking",
-                                "Date": yesterday
-                            })
-                        
-                        # International Tax articles
-                        elif "/research/international-tax" in href:
-                            combined_updates.append({
-                                "URL": href,
-                                "Category": "International Tax",
-                                "Date": yesterday
-                            })
+                if not page_has_target_or_newer and combined_updates:
+                    logger.info(f"Reached articles older than {yesterday}, stopping pagination")
+                    break
 
-                        # Transfer Pricing articles
-                        elif "/research/transfer-pricing" in href:
-                            combined_updates.append({
-                                "URL": href,
-                                "Category": "Transfer Pricing",
-                                "Date": yesterday
-                            })
-
-                except Exception as e:
-                    logger.debug(f"Skipping container due to error: {e}")
-                    continue
+                next_links = self.driver.find_elements(By.CSS_SELECTOR, "li.pagination-next:not(.disabled) a")
+                if not next_links:
+                    logger.info("No more pages to process")
+                    break
+                self.driver.execute_script("arguments[0].click();", next_links[0])
+                time.sleep(self.config.PAGE_LOAD_WAIT)
 
             logger.info(f"Found { len(combined_updates)} article links matching date {yesterday}")
 

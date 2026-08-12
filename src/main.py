@@ -52,6 +52,9 @@ def main():
 
         time_period = "yesterday" if datetime.now().weekday() != 0 else "the weekend"
 
+        # Ensure downloads directory exists before any scraper tries to save a PDF into it
+        Path(config.DOWNLOAD_DIR).mkdir(exist_ok=True)
+
         # Initialize driver once to be shared across all scrapers
         logger.info("📡 Setting up shared WebDriver...")
         driver = setup_driver(config)

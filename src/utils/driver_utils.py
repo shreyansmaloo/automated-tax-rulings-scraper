@@ -48,7 +48,8 @@ def setup_driver(config):
         chrome_options.add_experimental_option("prefs", prefs)
         
         # Add headless mode for Docker/CI environments
-        chrome_options.add_argument('--headless')
+        if config.HEADLESS_MODE:
+            chrome_options.add_argument('--headless=new')
         chrome_options.add_argument('--no-sandbox')
         chrome_options.add_argument('--disable-dev-shm-usage')
         
@@ -99,57 +100,60 @@ def login_to_taxsutra(driver, config):
         bool: True if login successful, False otherwise
     """
     
-    # Check if already logged in by looking for a known element only visible when logged in
     driver.get("https://www.taxsutra.com/user/login")
     time.sleep(config.PAGE_LOAD_WAIT)
 
     logger.info("Logging in to Taxsutra.com...")
-    # Check if already logged in by looking for the presence of 'signInLinksWrap' class
+
+    # If a logged-in session already redirected us away from /user/login, nothing to do.
+    if "user/login" not in driver.current_url:
+        logger.info(f"Already logged in (redirected to {driver.current_url}).")
+        return True
+
     try:
-        # If the signInLinksWrap element is NOT present, proceed to login
-        sign_in_elements = driver.find_elements(By.XPATH, "//div[@class='signInLinksWrap']")
-        if sign_in_elements:
-            logger.info("No 'signInLinksWrap' found, assuming already logged in.")
-            return True
-        else:
-            logger.info("'signInLinksWrap' found, proceeding to login.")
-            try:
-                # Wait for username field
-                username_field = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
-                    EC.presence_of_element_located((By.ID, "edit-name"))
-                )
-                username_field.clear()
-                username_field.send_keys(config.TAXSUTRA_USERNAME)
-                
-                # Wait for password field
-                password_field = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
-                    EC.presence_of_element_located((By.ID, "edit-pass"))
-                )
-                password_field.clear()
-                password_field.send_keys(config.TAXSUTRA_PASSWORD)
-                
-                # Click login button
-                login_button = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
-                    EC.element_to_be_clickable((By.ID, "edit-submit"))
-                )
-                login_button.click()
+        # Wait for username field. If it never shows up, the page redirected us away
+        # from the login form after our current_url check above (still-logged-in race) -
+        # treat that as success too, rather than a login failure.
+        try:
+            username_field = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
+                EC.presence_of_element_located((By.ID, "edit-name"))
+            )
+        except Exception:
+            if "user/login" not in driver.current_url:
+                logger.info(f"Already logged in (redirected to {driver.current_url}).")
+                return True
+            logger.error("❌ Login form did not load (no 'edit-name' field found).")
+            return False
 
-                try:
-                    force_login_button = WebDriverWait(driver, 8).until(
-                        EC.element_to_be_clickable((By.ID, "edit-reset"))
-                    )
-                    force_login_button.click()
-                    logger.info("Handled force login")
-                except:
-                    logger.debug("No force login required")
+        username_field.clear()
+        username_field.send_keys(config.TAXSUTRA_USERNAME)
 
-                # Wait for login to complete
-                time.sleep(config.PAGE_LOAD_WAIT)
+        # Wait for password field
+        password_field = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
+            EC.presence_of_element_located((By.ID, "edit-pass"))
+        )
+        password_field.clear()
+        password_field.send_keys(config.TAXSUTRA_PASSWORD)
 
-            except Exception as e:
-                logger.error(f"❌ Error during login form submission: {e}")
-                return False
-        
+        # Click login button
+        login_button = WebDriverWait(driver, config.WEBDRIVER_TIMEOUT).until(
+            EC.element_to_be_clickable((By.ID, "edit-submit"))
+        )
+        login_button.click()
+
+        try:
+            force_login_button = WebDriverWait(driver, 8).until(
+                EC.element_to_be_clickable((By.ID, "edit-reset"))
+            )
+            force_login_button.click()
+            logger.info("Handled force login")
+        except:
+            logger.debug("No force login required")
+
+        # Wait for login to complete
+        time.sleep(config.PAGE_LOAD_WAIT)
+        return True
+
     except Exception as e:
         logger.error(f"❌ Login to Taxsutra.com failed: {e}")
         return False
